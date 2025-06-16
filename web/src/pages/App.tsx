@@ -216,7 +216,7 @@ export default function App() {
             value={vowelsAndRandom} 
             onChange={(e) => setVowelsAndRandom(e.target.value.toUpperCase())}
             placeholder="e.g. 123R"
-            className="w-full border border-gray-600 bg-gray-800 text-white rounded-lg p-3 text-lg placeholder-gray-400"
+            className="w-full border border-gray-600 bg-transparent text-gray-400 rounded-lg p-3 text-lg placeholder-gray-500"
           />
         </div>
 
@@ -228,7 +228,7 @@ export default function App() {
             value={mustLetters}
             onChange={(e) => setMustLetters(e.target.value.toUpperCase())}
             placeholder="e.g. LRS"
-            className="w-full border border-gray-600 bg-gray-800 text-white rounded-lg p-3 text-lg placeholder-gray-400"
+            className="w-full border border-gray-600 bg-transparent text-gray-400 rounded-lg p-3 text-lg placeholder-gray-500"
           />
         </div>
 
@@ -253,7 +253,7 @@ export default function App() {
         {/* Search Button */}
         <Button 
           onClick={submit} 
-          className="w-full h-12 text-lg bg-gray-600 hover:bg-gray-500 border-gray-600 text-white" 
+          className="w-full h-12 text-lg bg-transparent hover:bg-gray-700 border border-gray-600 text-gray-400" 
           disabled={loading}
         >
           {loading ? (
