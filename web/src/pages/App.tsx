@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2, Search, Minus, Circle, CircleSlash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -7,6 +7,7 @@ interface Result {
   freq: number;
   lex: string | null;
   manmade: boolean;
+  region?: string | null;
 }
 
 const categories = [
@@ -30,6 +31,26 @@ export default function App() {
   const [results, setResults] = useState<Result[]>([]);
   const [lexFilter, setLexFilter] = useState<string>('all');
   const [lexCounts, setLexCounts] = useState<Record<string, number>>({});
+  const [mode, setMode] = useState<'words' | 'places'>('words');
+  const [regionFilter, setRegionFilter] = useState<string>(''); // continent code filter
+
+  const REGION_LABELS: Record<string,string> = {
+    'EU': 'Europe',
+    'AS': 'Asia',
+    'NA': 'North America',
+    'SA': 'South America',
+    'AF': 'Africa',
+    'OC': 'Oceania',
+    'OTHER': 'Other',
+  };
+
+  // Re-run query automatically when switching common/uncommon in Places mode
+  useEffect(() => {
+    if (mode === 'places') {
+      submit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commonFilter, mode]);
 
   // No lex set needed; API provides manmade flag
 
@@ -64,9 +85,19 @@ export default function App() {
       if (moreVowels !== undefined) body.more_vowels = moreVowels;
       if (lastCategory !== null) body.last_category = lastCategory;
       if (mustLetters.trim()) body.must_letters = mustLetters.trim();
-      // Don't send commonFilter to backend - we'll filter client-side
+      // Add place filters if in places mode
+      let endpoint = '/query';
+      if (mode === 'places') {
+        endpoint = '/query_place';
+        // Don't send place_type - search both countries and cities
+        // Send common filter to backend for places
+        if (commonFilter !== 'all') {
+          body.common = commonFilter === 'common';
+        }
+      }
+
       console.log('Request body:', body);
-      const res = await fetch('/query', {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -88,14 +119,38 @@ export default function App() {
 
   // Filter results by frequency and lexical category
   const filteredByFrequency = results.filter(r => {
+    // For places mode, backend already handles common/uncommon filtering
+    if (mode === 'places') return true;
+    
+    // For words mode, apply client-side frequency filtering
     if (commonFilter === 'all') return true;
     if (commonFilter === 'common') return r.freq >= 1.0;
     if (commonFilter === 'uncommon') return r.freq < 1.0;
     return true;
   });
 
+  // Apply region filter (places mode only)
+  const filteredByRegion = filteredByFrequency.filter(r => {
+    if(mode==='places' && regionFilter) {
+       const itemRegion = r.region ? r.region.toUpperCase() : 'OTHER';
+       return itemRegion === regionFilter;
+    }
+    return true;
+  });
+
+  // Compute region counts from filteredByFrequency (before region filter) so counts show totals
+  const regionCounts = filteredByFrequency.reduce((acc, r) => {
+     const code = r.region ? r.region.toUpperCase() : 'OTHER';
+     acc[code] = (acc[code] || 0) + 1;
+     return acc;
+  }, {} as Record<string, number>);
+
+  // Add "All" count 
+  const totalCount = Object.values(regionCounts).reduce((sum, count) => sum + count, 0);
+  const regionCountsWithAll = { '': totalCount, ...regionCounts };
+
   // Apply macro man-made / natural filter
-  const filteredByMacro = filteredByFrequency.filter(r => {
+  const filteredByMacro = filteredByRegion.filter(r => {
     if (macroFilter === 'all') return true;
     const isMan = r.manmade;
     if (macroFilter === 'manmade') return isMan;
@@ -120,6 +175,26 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-4xl mx-auto p-4 pt-12 space-y-6">
+        {/* Mode Toggle */}
+        <div className="flex gap-2 justify-center">
+          <Button
+            variant={mode === 'words' ? 'default' : 'outline'}
+            size="sm"
+            className={`px-4 ${mode === 'words' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+            onClick={() => setMode('words')}
+          >
+            Words
+          </Button>
+          <Button
+            variant={mode === 'places' ? 'default' : 'outline'}
+            size="sm"
+            className={`px-4 ${mode === 'places' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+            onClick={() => setMode('places')}
+          >
+            Places
+          </Button>
+        </div>
+
         {/* Length Selection - Mobile-first button row */}
         <div className="space-y-2">
           <div className="grid grid-cols-5 gap-2">
@@ -320,45 +395,64 @@ export default function App() {
               </Button>
             </div>
             
-            {/* Macro Man-made / Natural Filter Buttons */}
-            <div className="flex gap-2">
-              <Button
-                variant={macroFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                className={`${
-                  macroFilter === 'all' 
-                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-                }`}
-                onClick={() => setMacroFilter('all')}
-              >
-                All Types
-              </Button>
-              <Button
-                variant={macroFilter === 'manmade' ? 'default' : 'outline'}
-                size="sm"
-                className={`${
-                  macroFilter === 'manmade' 
-                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-                }`}
-                onClick={() => setMacroFilter('manmade')}
-              >
-                Man-made
-              </Button>
-              <Button
-                variant={macroFilter === 'natural' ? 'default' : 'outline'}
-                size="sm"
-                className={`${
-                  macroFilter === 'natural' 
-                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-                }`}
-                onClick={() => setMacroFilter('natural')}
-              >
-                Natural
-              </Button>
-            </div>
+            {/* Region buttons (after frequency row) */}
+            {mode === 'places' && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {Object.entries(regionCountsWithAll).filter(([code,c])=>c>0).map(([code,count])=> (
+                  <Button
+                    key={code}
+                    variant={regionFilter === code ? 'default' : 'outline'}
+                    size="sm"
+                    className={`${regionFilter === code ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                    onClick={() => setRegionFilter(code)}
+                  >
+                    {(code && REGION_LABELS[code]) || 'All'} ({count})
+                  </Button>
+                ))}
+              </div>
+            )}
+            
+            {/* Macro Man-made / Natural Filter Buttons - Only show for Words mode */}
+            {mode === 'words' && (
+              <div className="flex gap-2">
+                <Button
+                  variant={macroFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`${
+                    macroFilter === 'all' 
+                      ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
+                      : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                  }`}
+                  onClick={() => setMacroFilter('all')}
+                >
+                  All Types
+                </Button>
+                <Button
+                  variant={macroFilter === 'manmade' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`${
+                    macroFilter === 'manmade' 
+                      ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
+                      : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                  }`}
+                  onClick={() => setMacroFilter('manmade')}
+                >
+                  Man-made
+                </Button>
+                <Button
+                  variant={macroFilter === 'natural' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`${
+                    macroFilter === 'natural' 
+                      ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
+                      : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                  }`}
+                  onClick={() => setMacroFilter('natural')}
+                >
+                  Natural
+                </Button>
+              </div>
+            )}
             
             <div className="flex flex-wrap gap-2">
               <Button

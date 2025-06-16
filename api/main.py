@@ -13,11 +13,13 @@ from wordnet_vowel_index import (
     is_physical,
 )  # type: ignore
 from nltk.corpus import wordnet as wn
+from place_index import PlaceIndex  # new index for countries/cities
 
 app = FastAPI(title="20-Questions Word Helper API")
 
 # Build the index once at import time – ~1 s
 index = WordIndex()
+places_index = PlaceIndex()  # builds at import
 
 
 class QueryIn(BaseModel):
@@ -37,6 +39,29 @@ class WordOut(BaseModel):
     freq: float
     lex: Optional[str]
     manmade: bool
+
+
+# --------------------------- Places models ----------------------------- #
+
+class PlaceQueryIn(BaseModel):
+    length: int
+    category: int
+    v1: int
+    v2: int = 0
+    last_category: Optional[int] = None  # optional filter on last letter category
+    place_type: Optional[str] = None  # 'city' | 'country'
+    region: Optional[str] = None      # continent code e.g. 'EU'
+    common: Optional[bool] = None     # True = common only (1M+ pop), False = uncommon only
+    random: Optional[str] = None
+    more_vowels: Optional[bool] = None
+
+
+class PlaceOut(BaseModel):
+    word: str
+    freq: float  # use population in millions for cities, else 1.0
+    lex: str     # 'city' or 'country' for UI category grouping
+    manmade: bool = False  # always False to keep existing UI logic
+    region: str | None = None
 
 
 @app.get("/health")
@@ -113,6 +138,69 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
     by_lexname: Dict[str, int] = {}
     for r in resp:
         key = r.lex or "unknown"
+        by_lexname[key] = by_lexname.get(key, 0) + 1
+
+    return {"results": [r.dict() for r in resp], "by_lexname": by_lexname}
+
+
+# ----------------------------------------------------------------------- #
+#   Places endpoint
+# ----------------------------------------------------------------------- #
+
+
+@app.post("/query_place")
+def query_place(q: PlaceQueryIn):
+    if q.category not in CATEGORY_MAP:
+        raise HTTPException(status_code=400, detail="category must be 1, 2, or 3")
+
+    words = places_index.query_category(
+        q.length,
+        q.category,
+        q.v1,
+        q.v2,
+        random_constraint=q.random,
+        more_vowels=q.more_vowels,
+        place_type=q.place_type,
+        region=q.region,
+        common=q.common,
+    )
+
+    # Optional filter by last letter category (same logic as words)
+    if q.last_category in CATEGORY_MAP:
+        allowed_last = CATEGORY_MAP[q.last_category]
+        words = [w for w in words if w[-1].upper() in allowed_last]
+
+    # Build response list with pseudo frequency (population millions for cities)
+    resp: List[PlaceOut] = []
+    for w in words:
+        # Retrieve meta via a secondary exact query to look up stored data
+        meta = None
+        # Attempt to fetch via internal lookup function on raw index (not public)
+        for lst in places_index.index.values():
+            for name, md in lst:
+                if name == w:
+                    meta = md
+                    break
+            if meta:
+                break
+
+        if not meta:
+            continue  # should not happen
+
+        if meta["type"] == "city":
+            freq_val = meta["population"] / 1_000_000.0  # millions
+            lex_val = "city"
+        else:
+            freq_val = 1.0  # default
+            lex_val = "country"
+
+        resp.append(PlaceOut(word=w, freq=freq_val, lex=lex_val, region=meta.get("region")))
+
+    resp.sort(key=lambda r: (-r.freq, r.word))
+
+    by_lexname: Dict[str, int] = {}
+    for r in resp:
+        key = r.lex
         by_lexname[key] = by_lexname.get(key, 0) + 1
 
     return {"results": [r.dict() for r in resp], "by_lexname": by_lexname} 

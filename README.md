@@ -11,6 +11,7 @@ A sophisticated word search tool designed for the 20 Questions game, built with 
 - **Additional Letters**: Include specific letters that must be present
 - **Physical Objects Only**: Curated database of tangible, physical objects
 - **Frequency Filtering**: Common vs uncommon words based on usage statistics
+- **Places Search**: Toggle to guess *Countries* or *Cities* with continent & popularity filters
 
 ### Smart Categorization
 - **Man-made vs Natural**: Automatic classification using WordNet hypernym analysis
@@ -163,6 +164,39 @@ Search for words matching criteria.
 
 ### `GET /health`
 Health check endpoint.
+
+### `POST /query_place`
+Search for places (countries or cities).
+
+**Request Body (example):**
+```json
+{
+  "length": 6,
+  "category": 2,
+  "v1": 1,
+  "v2": 0,
+  "place_type": "country",   // or "city"
+  "region": "EU",            // Continent code (EU, AS, NA, SA, AF, OC)
+  "common": true              // Only populous cities (≥1 M) / all countries
+}
+```
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "word": "france",
+      "freq": 1.0,
+      "lex": "country",
+      "manmade": false
+    }
+  ],
+  "by_lexname": {
+    "country": 45
+  }
+}
+```
 
 ## Word Database
 
