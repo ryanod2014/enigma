@@ -1,6 +1,10 @@
 run = "bash -c 'cd web && npm install && npm run build && cd .. && uvicorn api.main:app --host 0.0.0.0 --port 8000'"
 
+modules = ["python-3.12", "nodejs-20", "web"]
+
 [deployment]
 run = ["sh", "-c", "cd web && npm install && npm run build && cd .. && uvicorn api.main:app --host 0.0.0.0 --port 8000"]
 
-packages = ["libxcrypt", "nodejs_20"] 
+[nix]
+channel = "stable-24_05"
+packages = ["libxcrypt" "nodejs_20"] 
