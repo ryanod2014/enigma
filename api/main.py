@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Dict, List, Optional
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -23,6 +24,15 @@ index = WordIndex()
 places_index = PlaceIndex()  # builds at import
 names_index = FirstNameIndex()
 
+# rhyme set for nouns filter
+RHYME_FILE = Path(__file__).resolve().parent.parent / "data" / "rhyme_flags.tsv"
+RHYME_SET: set[str] = set()
+if RHYME_FILE.is_file():
+    with RHYME_FILE.open() as rf:
+        for line in rf:
+            word, flag = line.strip().split("\t")
+            RHYME_SET.add(word.lower())
+
 
 class QueryIn(BaseModel):
     length: int
@@ -34,6 +44,8 @@ class QueryIn(BaseModel):
     common: Optional[bool] = None  # True = common only, False = uncommon only, None = both
     last_category: Optional[int] = None  # optional filter on last letter category
     must_letters: Optional[str] = None  # letters that must be present somewhere in the word
+    rhyme: Optional[bool] = None
+    ms: Optional[bool] = None  # restrict to first letter M/T/S/F
 
 
 class WordOut(BaseModel):
@@ -57,6 +69,8 @@ class PlaceQueryIn(BaseModel):
     random: Optional[str] = None
     more_vowels: Optional[bool] = None
     must_letters: Optional[str] = None
+    rhyme: Optional[bool] = None
+    ms: Optional[bool] = None
 
 
 class PlaceOut(BaseModel):
@@ -82,6 +96,8 @@ class NameQueryIn(BaseModel):
     last_category: Optional[int] = None
     nickname: Optional[str] = None  # 'nickname'|'multiple'|'none'
     must_letters: Optional[str] = None  # letters that must appear
+    rhyme: Optional[bool] = None
+    ms: Optional[bool] = None
 
 
 class NameOut(BaseModel):
@@ -118,6 +134,18 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
     if q.last_category in CATEGORY_MAP:
         allowed_last = CATEGORY_MAP[q.last_category]
         words = [w for w in words if w[-1].upper() in allowed_last]
+
+    # First-letter MTSF filter
+    if q.ms is True:
+        words = [w for w in words if w[0] in {'m','t','s','f','w'}]
+    if q.ms is False:
+        words = [w for w in words if w[0] not in {'m','t','s','f','w'}]
+
+    # Rhyme filter
+    if q.rhyme is True:
+        words = [w for w in words if w in RHYME_SET]
+    if q.rhyme is False:
+        words = [w for w in words if w not in RHYME_SET]
 
     # Optional filter: word must contain all specified letters
     if q.must_letters:
@@ -196,10 +224,22 @@ def query_place(q: PlaceQueryIn):
         common=q.common,
     )
 
-    # Optional filter by last letter category (same logic as words)
+    # Optional filter by last letter category
     if q.last_category in CATEGORY_MAP:
         allowed_last = CATEGORY_MAP[q.last_category]
         words = [w for w in words if w[-1].upper() in allowed_last]
+
+    # First-letter MTSF filter
+    if q.ms is True:
+        words = [w for w in words if w[0] in {'m','t','s','f','w'}]
+    if q.ms is False:
+        words = [w for w in words if w[0] not in {'m','t','s','f','w'}]
+
+    # Optional filters
+    if q.rhyme is True:
+        words = [w for w in words if any(meta.get("rhyme") for lst in places_index.index.values() for n,meta in lst if n==w)]
+    if q.rhyme is False:
+        words = [w for w in words if all(not meta.get("rhyme") for lst in places_index.index.values() for n,meta in lst if n==w)]
 
     # Must contain specific letters
     if q.must_letters:
@@ -262,6 +302,8 @@ def query_first_name(q: NameQueryIn):
         origin=q.origin,
         common=q.common,
         nickname=q.nickname,
+        rhyme=q.rhyme,
+        ms=q.ms,
     )
 
     # last letter category filter

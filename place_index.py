@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 from functools import lru_cache as _lru
 from typing import Dict, List, Tuple
+from pathlib import Path
 
 import pycountry
 import geonamescache  # type: ignore
@@ -93,6 +94,15 @@ COMMON_CITIES = {
 # helper regex for random constraint like "5S"
 RANDOM_LETTER_RE = re.compile(r"^(\d+)([A-Za-z])$")
 
+# rhyme set
+RHYME_FILE = Path(__file__).resolve().parent / "data" / "rhyme_flags.tsv"
+RHYME_SET: set[str] = set()
+if RHYME_FILE.is_file():
+    with RHYME_FILE.open() as rf:
+        for line in rf:
+            word, flag = line.strip().split("\t")
+            RHYME_SET.add(word.lower())
+
 
 def _vowel_positions(word: str) -> Tuple[int, ...]:
     """Return 1-based positions of vowels in *word* (case-insensitive)."""
@@ -133,7 +143,8 @@ class PlaceIndex:
                 "type": "country",
                 "region": cdata["continentcode"] if cdata["continentcode"] in CONTINENTS else None,
                 "population": cdata.get("population", 0),
-                "common": name in COMMON_COUNTRIES,  # Only well-known countries are common
+                "common": name in COMMON_COUNTRIES,
+                "rhyme": name in RHYME_SET,
             }
             key = (len(name), name[0], first_v, second_v)
             self.index.setdefault(key, []).append((name, meta))
@@ -157,7 +168,8 @@ class PlaceIndex:
                 "type": "city",
                 "region": city.get("continentcode"),
                 "population": pop,
-                "common": name in COMMON_CITIES,  # Only globally recognized cities are common
+                "common": name in COMMON_CITIES,
+                "rhyme": name in RHYME_SET,
             }
             key = (len(name), name[0], first_v, second_v)
             self.index.setdefault(key, []).append((name, meta))

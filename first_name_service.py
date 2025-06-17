@@ -28,6 +28,8 @@ class FirstNameService:
         origin: str | None = None,
         common: bool | None = None,
         nickname: str | None = None,
+        rhyme: bool | None = None,
+        ms: bool | None = None,
     ) -> List[str]:
         """Exact-letter query – thin pass-through to FirstNameIndex.query."""
         return cls._index.query(
@@ -39,6 +41,8 @@ class FirstNameService:
             origin=origin,
             common=common,
             nickname=nickname,
+            rhyme=rhyme,
+            ms=ms,
         )
 
     # ------------------------------------------------------------------ #
@@ -56,6 +60,8 @@ class FirstNameService:
         origin: str | None = None,
         common: bool | None = None,
         nickname: str | None = None,
+        rhyme: bool | None = None,
+        ms: bool | None = None,
     ) -> List[str]:
         """Category query – mirrors PlaceService.category semantics."""
         return cls._index.query_category(
@@ -69,4 +75,6 @@ class FirstNameService:
             origin=origin,
             common=common,
             nickname=nickname,
+            rhyme=rhyme,
+            ms=ms,
         ) 

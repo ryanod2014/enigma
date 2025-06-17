@@ -5,4 +5,6 @@ pydantic>=2.6
 pycountry>=23.12
 geonamescache>=2.0
 requests>=2.31
-tqdm>=4.66 
+tqdm>=4.66
+pronouncing>=0.2
+fuzzy==1.2.2 

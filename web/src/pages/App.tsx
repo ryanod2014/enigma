@@ -37,6 +37,8 @@ export default function App() {
   const [firstLetterFilter, setFirstLetterFilter] = useState<string>('all');
   const [lastLetterFilter, setLastLetterFilter] = useState<string>('all');
   const [nicknameFilter, setNicknameFilter] = useState<'all'|'nickname'|'multiple'|'none'>('all');
+  const [rhymeFilter, setRhymeFilter] = useState<'all'|'rhyme'>('all');
+  const [msFilter, setMsFilter] = useState<'all'|'yes'|'no'>('all');
 
   const REGION_LABELS: Record<string,string> = {
     'EU': 'Europe',
@@ -54,7 +56,7 @@ export default function App() {
       submit();
     }
     // eslint-disable-next-line react-hooks/expressive-deps
-  }, [mode]);
+  }, [mode, rhymeFilter, msFilter]);
 
   // No lex set needed; API provides manmade flag
 
@@ -112,6 +114,11 @@ export default function App() {
         // no nickname param; handled client-side
       }
 
+      // rhyme filter handled server-side
+      if (rhymeFilter === 'rhyme') body.rhyme = true;
+      if (msFilter==='yes') body.ms = true;
+      if (msFilter==='no') body.ms = false;
+
       console.log('Request body:', body);
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -147,6 +154,9 @@ export default function App() {
     if (nicknameFilter === 'nickname') ok = ok && (r as any).has_nickname === true;
     if (nicknameFilter === 'multiple') ok = ok && ((r as any).nick_count || 0) >= 2;
     if (nicknameFilter === 'none') ok = ok && (r as any).has_nickname === false;
+
+    if (msFilter==='yes') ok = ok && ['m','t','s','f','w'].includes(r.word[0].toLowerCase());
+    if (msFilter==='no') ok = ok && !['m','t','s','f','w'].includes(r.word[0].toLowerCase());
 
     return ok;
   });
@@ -376,9 +386,9 @@ export default function App() {
           />
         </div>
 
-        {/* More Vowels Button */}
+        {/* More Vowels + MTSF Filter Row */}
         <div className="space-y-2">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <Button
               variant={moreVowels === true ? "default" : "outline"}
               size="sm"
@@ -389,8 +399,11 @@ export default function App() {
               }`}
               onClick={() => setMoreVowels(moreVowels === true ? undefined : true)}
             >
-              2+
+              V=2+
             </Button>
+            {/* MTSF buttons inline */}
+            <Button variant={msFilter==='yes'?'default':'outline'} size="sm" className={`h-11 ${msFilter==='yes'?'bg-gray-600':'bg-transparent border-gray-600'}`} onClick={()=>setMsFilter(msFilter==='yes'?'all':'yes')}>✓ M-S</Button>
+            <Button variant={msFilter==='no'?'default':'outline'} size="sm" className={`h-11 ${msFilter==='no'?'bg-gray-600':'bg-transparent border-gray-600'}`} onClick={()=>setMsFilter(msFilter==='no'?'all':'no')}>✕ M-S</Button>
           </div>
         </div>
 
@@ -642,6 +655,12 @@ export default function App() {
                 </Button>
               </div>
             )}
+
+            {/* Rhyme Filter Row */}
+            <div className="flex gap-2 mt-2">
+              <Button variant={rhymeFilter==='all'? 'default':'outline'} size="sm" className={`${rhymeFilter==='all'?'bg-gray-600':'bg-transparent border-gray-600'}`} onClick={()=>setRhymeFilter('all')}>Any</Button>
+              <Button variant={rhymeFilter==='rhyme'? 'default':'outline'} size="sm" className={`${rhymeFilter==='rhyme'?'bg-gray-600':'bg-transparent border-gray-600'}`} onClick={()=>setRhymeFilter('rhyme')}>Rhymes</Button>
+            </div>
 
             {displayed.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
