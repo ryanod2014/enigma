@@ -48,16 +48,13 @@ export default function App() {
     'OTHER': 'Other',
   };
 
-  // Re-run query automatically when toggling server-side filters
+  // Re-run query automatically when server-side filters change
   useEffect(() => {
     if (mode === 'places') {
       submit();
-    } else if (mode === 'names') {
-      // only nicknameFilter requires backend
-      submit();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nicknameFilter, mode]);
+    // eslint-disable-next-line react-hooks/expressive-deps
+  }, [mode]);
 
   // No lex set needed; API provides manmade flag
 
@@ -112,9 +109,7 @@ export default function App() {
         }
       } else if (mode === 'names') {
         endpoint = '/query_first_name';
-        if (nicknameFilter !== 'all') {
-          body.nickname = nicknameFilter;
-        }
+        // no nickname param; handled client-side
       }
 
       console.log('Request body:', body);
@@ -141,14 +136,19 @@ export default function App() {
 
   // Filter results by frequency and lexical category
   const filteredByFrequency = results.filter(r => {
-    // For places mode, backend already handles common/uncommon filtering
     if (mode === 'places') return true;
-    
-    // For words mode, apply client-side frequency filtering
-    if (commonFilter === 'all') return true;
-    if (commonFilter === 'common') return r.freq >= 1.0;
-    if (commonFilter === 'uncommon') return r.freq < 1.0;
-    return true;
+
+    let ok = true;
+    // common/uncommon filter
+    if (commonFilter === 'common') ok = ok && (r as any).common === true;
+    if (commonFilter === 'uncommon') ok = ok && (r as any).common === false;
+
+    // nickname filter (names mode only)
+    if (nicknameFilter === 'nickname') ok = ok && (r as any).has_nickname === true;
+    if (nicknameFilter === 'multiple') ok = ok && ((r as any).nick_count || 0) >= 2;
+    if (nicknameFilter === 'none') ok = ok && (r as any).has_nickname === false;
+
+    return ok;
   });
 
   // Apply region filter (places mode only)
@@ -418,7 +418,7 @@ export default function App() {
         )}
 
         {/* Results */}
-        {!loading && searched && results.length > 0 && (
+        {!loading && searched && (
           <div className="space-y-4">
             <div className="text-sm text-gray-400">
               Found {filteredByMacro.length} results, showing {displayed.length}

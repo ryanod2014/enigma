@@ -56,6 +56,7 @@ class PlaceQueryIn(BaseModel):
     common: Optional[bool] = None     # True = common only (1M+ pop), False = uncommon only
     random: Optional[str] = None
     more_vowels: Optional[bool] = None
+    must_letters: Optional[str] = None
 
 
 class PlaceOut(BaseModel):
@@ -80,6 +81,7 @@ class NameQueryIn(BaseModel):
     more_vowels: Optional[bool] = None
     last_category: Optional[int] = None
     nickname: Optional[str] = None  # 'nickname'|'multiple'|'none'
+    must_letters: Optional[str] = None  # letters that must appear
 
 
 class NameOut(BaseModel):
@@ -89,6 +91,8 @@ class NameOut(BaseModel):
     manmade: bool = False  # placeholder to reuse UI logic
     origin: str | None = None
     common: bool | None = None
+    has_nickname: bool | None = None
+    nick_count: int | None = None
 
 
 @app.get("/health")
@@ -197,6 +201,11 @@ def query_place(q: PlaceQueryIn):
         allowed_last = CATEGORY_MAP[q.last_category]
         words = [w for w in words if w[-1].upper() in allowed_last]
 
+    # Must contain specific letters
+    if q.must_letters:
+        needed = set(q.must_letters.upper())
+        words = [w for w in words if needed.issubset(set(w.upper()))]
+
     # Build response list with pseudo frequency (population millions for cities)
     resp: List[PlaceOut] = []
     for w in words:
@@ -260,6 +269,11 @@ def query_first_name(q: NameQueryIn):
         allowed_last = CATEGORY_MAP[q.last_category]
         names = [n for n in names if n[-1].upper() in allowed_last]
 
+    # optional must_letters filter
+    if q.must_letters:
+        needed = set(q.must_letters.upper())
+        names = [n for n in names if needed.issubset(set(n.upper()))]
+
     resp: List[NameOut] = []
 
     # Build NameOut list
@@ -286,6 +300,8 @@ def query_first_name(q: NameQueryIn):
                 lex=meta.get("gender", "u"),
                 origin=meta.get("origin"),
                 common=is_common,
+                has_nickname=meta.get("has_nickname"),
+                nick_count=meta.get("nick_count", 0),
             )
         )
 
