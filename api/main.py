@@ -14,12 +14,14 @@ from wordnet_vowel_index import (
 )  # type: ignore
 from nltk.corpus import wordnet as wn
 from place_index import PlaceIndex  # new index for countries/cities
+from first_name_index import FirstNameIndex
 
 app = FastAPI(title="20-Questions Word Helper API")
 
 # Build the index once at import time – ~1 s
 index = WordIndex()
 places_index = PlaceIndex()  # builds at import
+names_index = FirstNameIndex()
 
 
 class QueryIn(BaseModel):
@@ -62,6 +64,29 @@ class PlaceOut(BaseModel):
     lex: str     # 'city' or 'country' for UI category grouping
     manmade: bool = False  # always False to keep existing UI logic
     region: str | None = None
+
+
+# --------------------------- Names models ----------------------------- #
+
+class NameQueryIn(BaseModel):
+    length: int
+    category: int
+    v1: int
+    v2: int = 0
+    gender: Optional[str] = None  # 'm' | 'f' | 'u'
+    origin: Optional[str] = None  # ISO country
+    common: Optional[bool] = None  # True common only
+    random: Optional[str] = None
+    more_vowels: Optional[bool] = None
+    last_category: Optional[int] = None
+
+
+class NameOut(BaseModel):
+    word: str
+    freq: float
+    lex: str  # use gender as lex category
+    manmade: bool = False  # placeholder to reuse UI logic
+    origin: str | None = None
 
 
 @app.get("/health")
@@ -203,4 +228,66 @@ def query_place(q: PlaceQueryIn):
         key = r.lex
         by_lexname[key] = by_lexname.get(key, 0) + 1
 
-    return {"results": [r.dict() for r in resp], "by_lexname": by_lexname} 
+    return {"results": [r.dict() for r in resp], "by_lexname": by_lexname}
+
+
+# ----------------------------------------------------------------------- #
+#   Names endpoint
+# ----------------------------------------------------------------------- #
+
+@app.post("/query_first_name")
+def query_first_name(q: NameQueryIn):
+    if q.category not in CATEGORY_MAP:
+        raise HTTPException(status_code=400, detail="category must be 1, 2, or 3")
+
+    names = names_index.query_category(
+        q.length,
+        q.category,
+        q.v1,
+        q.v2,
+        random_constraint=q.random,
+        more_vowels=q.more_vowels,
+        gender=q.gender,
+        origin=q.origin,
+        common=q.common,
+    )
+
+    # last letter category filter
+    if q.last_category in CATEGORY_MAP:
+        allowed_last = CATEGORY_MAP[q.last_category]
+        names = [n for n in names if n[-1].upper() in allowed_last]
+
+    resp: List[NameOut] = []
+
+    # Build NameOut list
+    for n in names:
+        # fetch meta via exact lookup
+        meta = None
+        for lst in names_index.index.values():
+            for name, md in lst:
+                if name == n:
+                    meta = md
+                    break
+            if meta:
+                break
+        if not meta:
+            continue
+
+        count = meta.get("count", 0)
+        freq_val = (count / 10_000.0) if count else 0.1
+        resp.append(
+            NameOut(
+                word=n,
+                freq=freq_val,
+                lex=meta.get("gender", "u"),
+                origin=meta.get("origin"),
+            )
+        )
+
+    resp.sort(key=lambda r: (-r.freq, r.word))
+
+    by_gender: Dict[str, int] = {}
+    for r in resp:
+        by_gender[r.lex] = by_gender.get(r.lex, 0) + 1
+
+    return {"results": [r.dict() for r in resp], "by_lexname": by_gender} 

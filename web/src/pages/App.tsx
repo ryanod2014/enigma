@@ -31,8 +31,9 @@ export default function App() {
   const [results, setResults] = useState<Result[]>([]);
   const [lexFilter, setLexFilter] = useState<string>('all');
   const [lexCounts, setLexCounts] = useState<Record<string, number>>({});
-  const [mode, setMode] = useState<'words' | 'places'>('words');
+  const [mode, setMode] = useState<'words' | 'places' | 'names'>('words');
   const [regionFilter, setRegionFilter] = useState<string>(''); // continent code filter
+  const [firstLetterFilter, setFirstLetterFilter] = useState<string>('all');
 
   const REGION_LABELS: Record<string,string> = {
     'EU': 'Europe',
@@ -73,6 +74,15 @@ export default function App() {
     return lex.replace('noun.', '').charAt(0).toUpperCase() + lex.replace('noun.', '').slice(1);
   }
 
+  // Helper to pretty-print gender code in Names mode
+  const getLexLabel = (code: string) => {
+    if (mode === 'names') {
+      const map: Record<string, string> = { m: 'Male', f: 'Female', u: 'Unisex' };
+      return map[code.toLowerCase()] || code;
+    }
+    return code;
+  };
+
   async function submit() {
     try {
       setLoading(true);
@@ -91,6 +101,11 @@ export default function App() {
         endpoint = '/query_place';
         // Don't send place_type - search both countries and cities
         // Send common filter to backend for places
+        if (commonFilter !== 'all') {
+          body.common = commonFilter === 'common';
+        }
+      } else if (mode === 'names') {
+        endpoint = '/query_first_name';
         if (commonFilter !== 'all') {
           body.common = commonFilter === 'common';
         }
@@ -159,8 +174,13 @@ export default function App() {
   });
 
   const displayed = filteredByMacro.filter(r => {
-    if (lexFilter === 'all') return true;
-    return r.lex && cleanLexName(r.lex) === lexFilter;
+    if (lexFilter !== 'all') {
+      if (!r.lex || cleanLexName(r.lex) !== lexFilter) return false;
+    }
+    if (firstLetterFilter !== 'all') {
+      if (r.word[0].toUpperCase() !== firstLetterFilter) return false;
+    }
+    return true;
   });
 
   // Update lexCounts based on frequency-filtered results with cleaned names
@@ -171,6 +191,18 @@ export default function App() {
     }
     return acc;
   }, {} as Record<string, number>);
+
+  // Compute counts for first-letter buttons (after all other filters except FL itself)
+  const firstLetterCounts = filteredByMacro.reduce((acc, r) => {
+    const fl = r.word[0].toUpperCase();
+    acc[fl] = (acc[fl] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Reset FL filter whenever new results arrive (new query)
+  useEffect(() => {
+    setFirstLetterFilter('all');
+  }, [results]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -192,6 +224,14 @@ export default function App() {
             onClick={() => setMode('places')}
           >
             Places
+          </Button>
+          <Button
+            variant={mode === 'names' ? 'default' : 'outline'}
+            size="sm"
+            className={`px-4 ${mode === 'names' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+            onClick={() => setMode('names')}
+          >
+            Names
           </Button>
         </div>
 
@@ -481,10 +521,36 @@ export default function App() {
                     }`}
                     onClick={() => setLexFilter(cleanedLex)}
                   >
-                    {cleanedLex} ({cnt})
+                    {getLexLabel(cleanedLex)} ({cnt})
                   </Button>
                 ))}
             </div>
+
+            {/* First-letter filter buttons */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              <Button
+                variant={firstLetterFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                className={`${firstLetterFilter === 'all' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                onClick={() => setFirstLetterFilter('all')}
+              >
+                All ({filteredByMacro.length})
+              </Button>
+              {Object.entries(firstLetterCounts)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([letter, cnt]) => (
+                  <Button
+                    key={letter}
+                    variant={firstLetterFilter === letter ? 'default' : 'outline'}
+                    size="sm"
+                    className={`${firstLetterFilter === letter ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                    onClick={() => setFirstLetterFilter(letter)}
+                  >
+                    {letter} ({cnt})
+                  </Button>
+                ))}
+            </div>
+
             {displayed.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {displayed.map((r) => (

@@ -12,6 +12,7 @@ A sophisticated word search tool designed for the 20 Questions game, built with 
 - **Physical Objects Only**: Curated database of tangible, physical objects
 - **Frequency Filtering**: Common vs uncommon words based on usage statistics
 - **Places Search**: Toggle to guess *Countries* or *Cities* with continent & popularity filters
+- **First-Names Search**: Guess *First Names* with gender / origin filters
 
 ### Smart Categorization
 - **Man-made vs Natural**: Automatic classification using WordNet hypernym analysis
@@ -198,6 +199,39 @@ Search for places (countries or cities).
 }
 ```
 
+### `POST /query_first_name`
+Search for first names.
+
+**Request Body (example):**
+```json
+{
+  "length": 4,
+  "category": 1,
+  "v1": 2,
+  "v2": 0,
+  "gender": "m",        // "m", "f", or "u" (unisex)
+  "origin": "US",       // ISO country code (optional)
+  "common": true          // Only common names (≤200 in US/world)
+}
+```
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "word": "john",
+      "gender": "m",
+      "origin": "US"
+    }
+  ],
+  "by_gender": {
+    "m": 123,
+    "f": 110
+  }
+}
+```
+
 ## Word Database
 
 The system uses a curated database of ~1,500 physical objects sourced from WordNet. Words are filtered to include only:
@@ -206,6 +240,16 @@ The system uses a curated database of ~1,500 physical objects sourced from WordN
 - **Nouns with primary noun usage**: Excludes words primarily used as adjectives
 - **Common objects**: Minimum usage frequency requirements
 - **Allowed categories**: Artifacts, animals, plants, body parts, substances, vehicles
+
+- **Places index**: …
+- **First-name index**: built from U.S. SSA baby-names corpus (100k names). Generate once:
+  ```bash
+  # automatic download
+  python scripts/build_first_names.py
+  # or using a locally downloaded names.zip
+  python scripts/build_first_names.py --local path/to/names.zip
+  ```
+  Produces `data/first_names.tsv` used at runtime.
 
 ## Development
 
