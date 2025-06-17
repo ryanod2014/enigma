@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Search, Minus, Circle, CircleSlash } from 'lucide-react';
+import { Loader2, Search, Minus, Circle, CircleSlash, Book, MapPin, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Result {
@@ -207,31 +207,31 @@ export default function App() {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-4xl mx-auto p-4 pt-12 space-y-6">
-        {/* Mode Toggle */}
-        <div className="flex gap-2 justify-center">
+        {/* Mode Toggle – 3 equal-width icon buttons */}
+        <div className="grid grid-cols-3 gap-2 w-full">
           <Button
             variant={mode === 'words' ? 'default' : 'outline'}
             size="sm"
-            className={`px-4 ${mode === 'words' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+            className={`flex items-center justify-center h-12 ${mode === 'words' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
             onClick={() => setMode('words')}
           >
-            Words
+            <Book className="w-6 h-6" aria-label="Words" />
           </Button>
           <Button
             variant={mode === 'places' ? 'default' : 'outline'}
             size="sm"
-            className={`px-4 ${mode === 'places' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+            className={`flex items-center justify-center h-12 ${mode === 'places' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
             onClick={() => setMode('places')}
           >
-            Places
+            <MapPin className="w-6 h-6" aria-label="Places" />
           </Button>
           <Button
             variant={mode === 'names' ? 'default' : 'outline'}
             size="sm"
-            className={`px-4 ${mode === 'names' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+            className={`flex items-center justify-center h-12 ${mode === 'names' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
             onClick={() => setMode('names')}
           >
-            Names
+            <User className="w-6 h-6" aria-label="Names" />
           </Button>
         </div>
 
