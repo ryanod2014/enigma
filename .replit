@@ -1,9 +1,9 @@
-run = "bash -c 'cd web && npm install && npm run build && cd .. && uvicorn api.main:app --host 0.0.0.0 --port 8000'"
+run = "bash -c 'pip install -q -r requirements.txt && cd web && npm install && npm run build && cd .. && uvicorn api.main:app --host 0.0.0.0 --port 8000'"
 
 modules = ["python-3.12", "nodejs-20", "web"]
 
 [deployment]
-run = ["sh", "-c", "cd web && npm install && npm run build && cd .. && uvicorn api.main:app --host 0.0.0.0 --port 8000"]
+run = ["sh", "-c", "pip install -q -r requirements.txt && cd web && npm install && npm run build && cd .. && uvicorn api.main:app --host 0.0.0.0 --port 8000"]
 
 [nix]
 channel = "stable-24_05"
