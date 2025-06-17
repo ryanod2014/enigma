@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 from pathlib import Path
+import csv
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -12,6 +13,7 @@ from wordnet_vowel_index import (
     zipf_frequency,
     PHYSICAL_LEXNAMES,
     is_physical,
+    HOLDABLE_SET,
 )  # type: ignore
 from nltk.corpus import wordnet as wn
 from place_index import PlaceIndex  # new index for countries/cities
@@ -29,9 +31,15 @@ RHYME_FILE = Path(__file__).resolve().parent.parent / "data" / "rhyme_flags.tsv"
 RHYME_SET: set[str] = set()
 if RHYME_FILE.is_file():
     with RHYME_FILE.open() as rf:
-        for line in rf:
-            word, flag = line.strip().split("\t")
-            RHYME_SET.add(word.lower())
+        reader = csv.reader(rf, delimiter="\t")
+        for row in reader:
+            if row and row[1] == "1":
+                RHYME_SET.add(row[0].lower())
+
+# Helper to get char at 1-based position ignoring spaces
+def _char_at(word: str, pos: int) -> str:
+    clean = word.replace(" ", "")
+    return clean[pos - 1].upper() if 1 <= pos <= len(clean) else ""
 
 
 class QueryIn(BaseModel):
@@ -39,6 +47,8 @@ class QueryIn(BaseModel):
     category: int
     v1: int
     v2: int = 0
+    v1_cat: Optional[int] = None  # category for letter at V1 position
+    v2_cat: Optional[int] = None  # category for letter at V2 position
     random: Optional[str] = None
     more_vowels: Optional[bool] = None
     common: Optional[bool] = None  # True = common only, False = uncommon only, None = both
@@ -46,6 +56,7 @@ class QueryIn(BaseModel):
     must_letters: Optional[str] = None  # letters that must be present somewhere in the word
     rhyme: Optional[bool] = None
     ms: Optional[bool] = None  # restrict to first letter M/T/S/F
+    holdable: Optional[bool] = None
 
 
 class WordOut(BaseModel):
@@ -53,6 +64,8 @@ class WordOut(BaseModel):
     freq: float
     lex: Optional[str]
     manmade: bool
+    common: bool  # True if frequent (Zipf ≥4.0 or count≥1)
+    holdable: Optional[bool] = None
 
 
 # --------------------------- Places models ----------------------------- #
@@ -62,6 +75,8 @@ class PlaceQueryIn(BaseModel):
     category: int
     v1: int
     v2: int = 0
+    v1_cat: Optional[int] = None
+    v2_cat: Optional[int] = None
     last_category: Optional[int] = None  # optional filter on last letter category
     place_type: Optional[str] = None  # 'city' | 'country'
     region: Optional[str] = None      # continent code e.g. 'EU'
@@ -71,6 +86,7 @@ class PlaceQueryIn(BaseModel):
     must_letters: Optional[str] = None
     rhyme: Optional[bool] = None
     ms: Optional[bool] = None
+    holdable: Optional[bool] = None
 
 
 class PlaceOut(BaseModel):
@@ -78,7 +94,9 @@ class PlaceOut(BaseModel):
     freq: float  # use population in millions for cities, else 1.0
     lex: str     # 'city' or 'country' for UI category grouping
     manmade: bool = False  # always False to keep existing UI logic
+    common: bool | None = None  # populous cities or well-known country flag
     region: str | None = None
+    holdable: Optional[bool] = None
 
 
 # --------------------------- Names models ----------------------------- #
@@ -88,6 +106,8 @@ class NameQueryIn(BaseModel):
     category: int
     v1: int
     v2: int = 0
+    v1_cat: Optional[int] = None
+    v2_cat: Optional[int] = None
     gender: Optional[str] = None  # 'm' | 'f' | 'u'
     origin: Optional[str] = None  # ISO country
     common: Optional[bool] = None  # True common only
@@ -98,6 +118,7 @@ class NameQueryIn(BaseModel):
     must_letters: Optional[str] = None  # letters that must appear
     rhyme: Optional[bool] = None
     ms: Optional[bool] = None
+    holdable: Optional[bool] = None
 
 
 class NameOut(BaseModel):
@@ -109,6 +130,7 @@ class NameOut(BaseModel):
     common: bool | None = None
     has_nickname: bool | None = None
     nick_count: int | None = None
+    holdable: Optional[bool] = None
 
 
 @app.get("/health")
@@ -121,14 +143,19 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
     if q.category not in CATEGORY_MAP:
         raise HTTPException(status_code=400, detail="category must be 1, 2, or 3")
 
-    words = index.query_category(
-        q.length,
-        q.category,
-        q.v1,
-        q.v2,
+    # `query_category` now returns a **list[str]** (words), not dicts
+    words_raw = index.query_category(
+        length=q.length,
+        category=q.category,
+        first_vowel_pos=q.v1,
+        second_vowel_pos=q.v2,
         random_constraint=q.random,
         more_vowels=q.more_vowels,
+        holdable=q.holdable,
     )
+
+    # Start with the raw word list
+    words = list(words_raw)
 
     # Optional filter by last letter category
     if q.last_category in CATEGORY_MAP:
@@ -152,48 +179,53 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
         needed = set(q.must_letters.upper())
         words = [w for w in words if needed.issubset(set(w.upper()))]
 
-    # Build response list with frequency + lexname
+    # V1 / V2 category filters
+    if q.v1_cat in CATEGORY_MAP:
+        allowed_set = CATEGORY_MAP[q.v1_cat]
+        words = [w for w in words if _char_at(w, q.v1) in allowed_set]
+    if q.v2 > 0 and q.v2_cat in CATEGORY_MAP:
+        allowed_set = CATEGORY_MAP[q.v2_cat]
+        words = [w for w in words if _char_at(w, q.v2) in allowed_set]
+
     resp: List[WordOut] = []
 
-    # Precompute man-made root synsets
-    MAN_MADE_ROOTS = {wn.synset('artifact.n.01'), wn.synset('vehicle.n.01')}
-
     for w in words:
-        # Determine frequency (zipf or count)
         if callable(zipf_frequency):
             freq_metric = float(zipf_frequency(w, "en"))
-            is_common = freq_metric >= 4.0  # zipf 4+ common words
+            is_common = freq_metric >= 4.0
         else:
             counts = [lem.count() for syn in wn.synsets(w) for lem in syn.lemmas() if lem.name() == w]
             freq_metric = float(max(counts, default=0))
-            is_common = freq_metric >= 1  # >=1 occurrences common
+            is_common = freq_metric >= 1
 
-        # Apply optional common/uncommon filter
         if q.common is True and not is_common:
             continue
         if q.common is False and is_common:
             continue
 
-        # Determine the first *physical* synset for the word
         lex = None
         manmade_flag = False
         for syn in wn.synsets(w, pos=wn.NOUN):
-            # Re-use the robust `is_physical` helper used when building the index
             if is_physical(syn):
                 lex = syn.lexname()
-                # Determine man-made vs natural by walking hypernym tree
-                manmade_flag = any(p in MAN_MADE_ROOTS for p in syn.closure(lambda x: x.hypernyms()))
+                manmade_flag = any(p in {wn.synset('artifact.n.01'), wn.synset('vehicle.n.01')} for p in syn.closure(lambda x: x.hypernyms()))
                 break
         if lex is None:
-            # No clearly physical sense found → skip the word
             continue
 
-        resp.append(WordOut(word=w, freq=freq_metric, lex=lex, manmade=manmade_flag))
+        resp.append(
+            WordOut(
+                word=w,
+                freq=freq_metric,
+                lex=lex,
+                manmade=manmade_flag,
+                common=is_common,
+                holdable=w in HOLDABLE_SET,
+            )
+        )
 
-    # Sort by frequency descending, then alpha
     resp.sort(key=lambda r: (-r.freq, r.word))
 
-    # Aggregate counts by lexname for filter tabs
     by_lexname: Dict[str, int] = {}
     for r in resp:
         key = r.lex or "unknown"
@@ -213,15 +245,16 @@ def query_place(q: PlaceQueryIn):
         raise HTTPException(status_code=400, detail="category must be 1, 2, or 3")
 
     words = places_index.query_category(
-        q.length,
-        q.category,
-        q.v1,
-        q.v2,
+        length=q.length,
+        category=q.category,
+        first_vowel_pos=q.v1,
+        second_vowel_pos=q.v2,
         random_constraint=q.random,
         more_vowels=q.more_vowels,
         place_type=q.place_type,
         region=q.region,
         common=q.common,
+        holdable=q.holdable,
     )
 
     # Optional filter by last letter category
@@ -245,6 +278,14 @@ def query_place(q: PlaceQueryIn):
     if q.must_letters:
         needed = set(q.must_letters.upper())
         words = [w for w in words if needed.issubset(set(w.upper()))]
+
+    # V1/V2 category filters
+    if q.v1_cat in CATEGORY_MAP:
+        allowed_set = CATEGORY_MAP[q.v1_cat]
+        words = [w for w in words if _char_at(w, q.v1) in allowed_set]
+    if q.v2 > 0 and q.v2_cat in CATEGORY_MAP:
+        allowed_set = CATEGORY_MAP[q.v2_cat]
+        words = [w for w in words if _char_at(w, q.v2) in allowed_set]
 
     # Build response list with pseudo frequency (population millions for cities)
     resp: List[PlaceOut] = []
@@ -270,7 +311,16 @@ def query_place(q: PlaceQueryIn):
             freq_val = 1.0  # default
             lex_val = "country"
 
-        resp.append(PlaceOut(word=w, freq=freq_val, lex=lex_val, region=meta.get("region")))
+        resp.append(
+            PlaceOut(
+                word=w,
+                freq=freq_val,
+                lex=lex_val,
+                common=meta.get("common"),
+                region=meta.get("region"),
+                holdable=meta.get("holdable"),
+            )
+        )
 
     resp.sort(key=lambda r: (-r.freq, r.word))
 
@@ -292,10 +342,10 @@ def query_first_name(q: NameQueryIn):
         raise HTTPException(status_code=400, detail="category must be 1, 2, or 3")
 
     names = names_index.query_category(
-        q.length,
-        q.category,
-        q.v1,
-        q.v2,
+        length=q.length,
+        category=q.category,
+        first_vowel_pos=q.v1,
+        second_vowel_pos=q.v2,
         random_constraint=q.random,
         more_vowels=q.more_vowels,
         gender=q.gender,
@@ -304,6 +354,7 @@ def query_first_name(q: NameQueryIn):
         nickname=q.nickname,
         rhyme=q.rhyme,
         ms=q.ms,
+        holdable=q.holdable,
     )
 
     # last letter category filter
@@ -315,6 +366,14 @@ def query_first_name(q: NameQueryIn):
     if q.must_letters:
         needed = set(q.must_letters.upper())
         names = [n for n in names if needed.issubset(set(n.upper()))]
+
+    # V1/V2 category filters
+    if q.v1_cat in CATEGORY_MAP:
+        allowed_set = CATEGORY_MAP[q.v1_cat]
+        names = [n for n in names if _char_at(n, q.v1) in allowed_set]
+    if q.v2 > 0 and q.v2_cat in CATEGORY_MAP:
+        allowed_set = CATEGORY_MAP[q.v2_cat]
+        names = [n for n in names if _char_at(n, q.v2) in allowed_set]
 
     resp: List[NameOut] = []
 
@@ -344,6 +403,7 @@ def query_first_name(q: NameQueryIn):
                 common=is_common,
                 has_nickname=meta.get("has_nickname"),
                 nick_count=meta.get("nick_count", 0),
+                holdable=meta.get("holdable"),
             )
         )
 

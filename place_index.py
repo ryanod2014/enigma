@@ -26,6 +26,7 @@ from pathlib import Path
 
 import pycountry
 import geonamescache  # type: ignore
+import csv
 
 # --------------------------------------------------------------------------- #
 VOWELS = "AEIOUY"
@@ -94,6 +95,16 @@ COMMON_CITIES = {
 # helper regex for random constraint like "5S"
 RANDOM_LETTER_RE = re.compile(r"^(\d+)([A-Za-z])$")
 
+# holdable set loaded once
+HOLDABLE_FILE = Path(__file__).resolve().parent / "data" / "holdable_flags.tsv"
+HOLDABLE_SET: set[str] = set()
+if HOLDABLE_FILE.is_file():
+    with HOLDABLE_FILE.open() as hf:
+        for line in hf:
+            word, flag = line.strip().split("\t")
+            if flag == "1":
+                HOLDABLE_SET.add(word.lower())
+
 # rhyme set
 RHYME_FILE = Path(__file__).resolve().parent / "data" / "rhyme_flags.tsv"
 RHYME_SET: set[str] = set()
@@ -145,6 +156,7 @@ class PlaceIndex:
                 "population": cdata.get("population", 0),
                 "common": name in COMMON_COUNTRIES,
                 "rhyme": name in RHYME_SET,
+                "holdable": name in HOLDABLE_SET,
             }
             key = (len(name), name[0], first_v, second_v)
             self.index.setdefault(key, []).append((name, meta))
@@ -170,6 +182,7 @@ class PlaceIndex:
                 "population": pop,
                 "common": name in COMMON_CITIES,
                 "rhyme": name in RHYME_SET,
+                "holdable": name in HOLDABLE_SET,
             }
             key = (len(name), name[0], first_v, second_v)
             self.index.setdefault(key, []).append((name, meta))
@@ -199,10 +212,11 @@ class PlaceIndex:
         place_type: str | None = None,
         region: str | None = None,
         common: bool | None = None,
+        holdable: bool | None = None,
     ) -> List[str]:
         """Exact-letter query; returns matching place names."""
         results = self._lookup(length, first_letter, first_vowel_pos, second_vowel_pos)
-        return self._filter(results, place_type, region, common)
+        return self._filter(results, place_type, region, common, holdable)
 
     def query_category(
         self,
@@ -215,6 +229,7 @@ class PlaceIndex:
         place_type: str | None = None,
         region: str | None = None,
         common: bool | None = None,
+        holdable: bool | None = None,
     ) -> List[str]:
         if category not in CATEGORY_MAP:
             raise ValueError("category must be 1, 2, or 3")
@@ -246,7 +261,7 @@ class PlaceIndex:
                 dedup = [(n, m) for n, m in dedup if len(_vowel_positions(n)) <= 2]
 
         # Remaining meta-based filters
-        return self._filter(dedup, place_type, region, common)
+        return self._filter(dedup, place_type, region, common, holdable)
 
     # ------------------------------------------------------------------ #
     def _filter(
@@ -255,6 +270,7 @@ class PlaceIndex:
         place_type: str | None,
         region: str | None,
         common: bool | None,
+        holdable: bool | None,
     ) -> List[str]:
         out: List[str] = []
         for name, meta in items:
@@ -265,6 +281,10 @@ class PlaceIndex:
             if common is True and not meta["common"]:
                 continue
             if common is False and meta["common"]:
+                continue
+            if holdable is True and not meta.get("holdable"):
+                continue
+            if holdable is False and meta.get("holdable"):
                 continue
             out.append(name)
         return out 

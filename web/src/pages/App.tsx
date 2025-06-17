@@ -22,6 +22,8 @@ export default function App() {
   const [length, setLength] = useState<number>(4);
   const [category, setCategory] = useState<number>(1);
   const [lastCategory, setLastCategory] = useState<number | null>(null);
+  const [v1Category, setV1Category] = useState<number | null>(null);
+  const [v2Category, setV2Category] = useState<number | null>(null);
   const [vowelsAndRandom, setVowelsAndRandom] = useState<string>(''); // Combined input like "123R"
   const [mustLetters, setMustLetters] = useState<string>('');
   const [moreVowels, setMoreVowels] = useState<boolean | undefined>();
@@ -37,8 +39,8 @@ export default function App() {
   const [firstLetterFilter, setFirstLetterFilter] = useState<string>('all');
   const [lastLetterFilter, setLastLetterFilter] = useState<string>('all');
   const [nicknameFilter, setNicknameFilter] = useState<'all'|'nickname'|'multiple'|'none'>('all');
-  const [rhymeFilter, setRhymeFilter] = useState<'all'|'rhyme'>('all');
   const [msFilter, setMsFilter] = useState<'all'|'yes'|'no'>('all');
+  const [sizeFilter, setSizeFilter] = useState<'all' | 'small' | 'big'>('all');
 
   const REGION_LABELS: Record<string,string> = {
     'EU': 'Europe',
@@ -55,8 +57,8 @@ export default function App() {
     if (mode === 'places') {
       submit();
     }
-    // eslint-disable-next-line react-hooks/expressive-deps
-  }, [mode, rhymeFilter, msFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, msFilter]);
 
   // No lex set needed; API provides manmade flag
 
@@ -88,6 +90,10 @@ export default function App() {
     return code;
   };
 
+  const handleSizeFilter = (newFilter: 'small' | 'big') => {
+    setSizeFilter(prev => prev === newFilter ? 'all' : newFilter);
+  };
+
   async function submit() {
     try {
       setLoading(true);
@@ -99,6 +105,8 @@ export default function App() {
       if (random) body.random = random;
       if (moreVowels !== undefined) body.more_vowels = moreVowels;
       if (lastCategory !== null) body.last_category = lastCategory;
+      if (v1Category !== null) body.v1_cat = v1Category;
+      if (v2Category !== null) body.v2_cat = v2Category;
       if (mustLetters.trim()) body.must_letters = mustLetters.trim();
       // Add place filters if in places mode
       let endpoint = '/query';
@@ -114,10 +122,11 @@ export default function App() {
         // no nickname param; handled client-side
       }
 
-      // rhyme filter handled server-side
-      if (rhymeFilter === 'rhyme') body.rhyme = true;
-      if (msFilter==='yes') body.ms = true;
-      if (msFilter==='no') body.ms = false;
+      // rhyme filter removed
+      if (msFilter === 'yes') body.ms = true;
+      if (msFilter === 'no') body.ms = false;
+      if (sizeFilter === 'small') { body.holdable = true; }
+      else if (sizeFilter === 'big') { body.holdable = false; }
 
       console.log('Request body:', body);
       const res = await fetch(endpoint, {
@@ -141,6 +150,13 @@ export default function App() {
     }
   }
 
+  // Compute common/uncommon counts for current result set (before common filter applied)
+  const commonCounts = results.reduce((acc, r) => {
+    const isCommon = (r as any).common === true;
+    if (isCommon) acc.common += 1; else acc.uncommon +=1;
+    return acc;
+  }, {common:0, uncommon:0});
+
   // Filter results by frequency and lexical category
   const filteredByFrequency = results.filter(r => {
     if (mode === 'places') return true;
@@ -155,8 +171,12 @@ export default function App() {
     if (nicknameFilter === 'multiple') ok = ok && ((r as any).nick_count || 0) >= 2;
     if (nicknameFilter === 'none') ok = ok && (r as any).has_nickname === false;
 
-    if (msFilter==='yes') ok = ok && ['m','t','s','f','w'].includes(r.word[0].toLowerCase());
-    if (msFilter==='no') ok = ok && !['m','t','s','f','w'].includes(r.word[0].toLowerCase());
+    if (msFilter === 'yes') ok = ok && ['m', 't', 's', 'f', 'w'].includes(r.word[0].toLowerCase());
+    if (msFilter === 'no') ok = ok && !['m', 't', 's', 'f', 'w'].includes(r.word[0].toLowerCase());
+
+    // Size filter (client-side)
+    if (sizeFilter === 'small') ok = ok && (r as any).holdable === true;
+    if (sizeFilter === 'big') ok = ok && (r as any).holdable === false;
 
     return ok;
   });
@@ -180,6 +200,12 @@ export default function App() {
   // Add "All" count 
   const totalCount = Object.values(regionCounts).reduce((sum, count) => sum + count, 0);
   const regionCountsWithAll = { '': totalCount, ...regionCounts };
+
+  // Compute man-made / natural counts (from filteredByRegion before macro filter)
+  const manCounts = filteredByRegion.reduce((acc, r) => {
+    if (r.manmade) acc.man += 1; else acc.nat += 1;
+    return acc;
+  }, {man:0, nat:0});
 
   // Apply macro man-made / natural filter
   const filteredByMacro = filteredByRegion.filter(r => {
@@ -323,37 +349,12 @@ export default function App() {
                   key={cat.id}
                   variant={category === cat.id ? "default" : "outline"}
                   size="sm"
-                  className={`min-w-[44px] h-11 ${
+                  className={`min-w-[36px] h-10 sm:min-w-[44px] sm:h-11 ${
                     category === cat.id 
                       ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
                       : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
                   }`}
                   onClick={() => setCategory(cat.id)}
-                >
-                  <IconComponent className="w-5 h-5" />
-                </Button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Last Letter Category (optional) */}
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-300">LL</label>
-          <div className="flex gap-2">
-            {categories.map((cat) => {
-              const IconComponent = cat.icon;
-              return (
-                <Button
-                  key={cat.id}
-                  variant={lastCategory === cat.id ? "default" : "outline"}
-                  size="sm"
-                  className={`min-w-[44px] h-11 ${
-                    lastCategory === cat.id 
-                      ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                      : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-                  }`}
-                  onClick={() => setLastCategory(lastCategory === cat.id ? null : cat.id)}
                 >
                   <IconComponent className="w-5 h-5" />
                 </Button>
@@ -386,13 +387,91 @@ export default function App() {
           />
         </div>
 
+        {/* V1, V2, LL Categories – same row with dividers */}
+        <div className="flex divide-x divide-gray-600">
+          {/* V1 */}
+          <div className="flex flex-col items-center space-y-1 sm:space-y-2 px-2 flex-1">
+            <span className="text-sm font-medium text-gray-300">V1</span>
+            <div className="flex gap-2 justify-center">
+              {categories.map((cat) => {
+                const IconComponent = cat.icon;
+                return (
+                  <Button
+                    key={cat.id}
+                    variant={v1Category === cat.id ? 'default' : 'outline'}
+                    size="sm"
+                    className={`min-w-[36px] h-10 sm:min-w-[44px] sm:h-11 ${
+                      v1Category === cat.id
+                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600'
+                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                    }`}
+                    onClick={() => setV1Category(v1Category === cat.id ? null : cat.id)}
+                  >
+                    <IconComponent className="w-5 h-5" />
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* V2 */}
+          <div className="flex flex-col items-center space-y-1 sm:space-y-2 px-2 flex-1">
+            <span className="text-sm font-medium text-gray-300">V2</span>
+            <div className="flex gap-2 justify-center">
+              {categories.map((cat) => {
+                const IconComponent = cat.icon;
+                return (
+                  <Button
+                    key={cat.id}
+                    variant={v2Category === cat.id ? 'default' : 'outline'}
+                    size="sm"
+                    className={`min-w-[36px] h-10 sm:min-w-[44px] sm:h-11 ${
+                      v2Category === cat.id
+                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600'
+                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                    }`}
+                    onClick={() => setV2Category(v2Category === cat.id ? null : cat.id)}
+                  >
+                    <IconComponent className="w-5 h-5" />
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* LL */}
+          <div className="flex flex-col items-center space-y-1 sm:space-y-2 px-2 flex-1">
+            <span className="text-sm font-medium text-gray-300">LL</span>
+            <div className="flex gap-2 justify-center">
+              {categories.map((cat) => {
+                const IconComponent = cat.icon;
+                return (
+                  <Button
+                    key={cat.id}
+                    variant={lastCategory === cat.id ? 'default' : 'outline'}
+                    size="sm"
+                    className={`min-w-[36px] h-10 sm:min-w-[44px] sm:h-11 ${
+                      lastCategory === cat.id
+                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600'
+                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                    }`}
+                    onClick={() => setLastCategory(lastCategory === cat.id ? null : cat.id)}
+                  >
+                    <IconComponent className="w-5 h-5" />
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* More Vowels + MTSF Filter Row */}
         <div className="space-y-2">
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
             <Button
               variant={moreVowels === true ? "default" : "outline"}
               size="sm"
-              className={`min-w-[44px] h-11 ${
+              className={`min-w-[36px] h-10 sm:min-w-[44px] sm:h-11 ${
                 moreVowels === true 
                   ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
                   : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
@@ -402,8 +481,24 @@ export default function App() {
               V=2+
             </Button>
             {/* MTSF buttons inline */}
-            <Button variant={msFilter==='yes'?'default':'outline'} size="sm" className={`h-11 ${msFilter==='yes'?'bg-gray-600':'bg-transparent border-gray-600'}`} onClick={()=>setMsFilter(msFilter==='yes'?'all':'yes')}>✓ M-S</Button>
-            <Button variant={msFilter==='no'?'default':'outline'} size="sm" className={`h-11 ${msFilter==='no'?'bg-gray-600':'bg-transparent border-gray-600'}`} onClick={()=>setMsFilter(msFilter==='no'?'all':'no')}>✕ M-S</Button>
+            <Button variant={msFilter === 'yes' ? 'default' : 'outline'} size="sm" className={`h-11 ${msFilter === 'yes' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`} onClick={() => setMsFilter(msFilter === 'yes' ? 'all' : 'yes')}>✓ M-S</Button>
+            <Button variant={msFilter === 'no' ? 'default' : 'outline'} size="sm" className={`h-11 ${msFilter === 'no' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`} onClick={() => setMsFilter(msFilter === 'no' ? 'all' : 'no')}>✕ M-S</Button>
+            {mode === 'words' && (
+              <>
+                <Button
+                  variant={sizeFilter === 'small' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`h-11 ${sizeFilter === 'small' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                  onClick={() => handleSizeFilter('small')}
+                >Small</Button>
+                <Button
+                  variant={sizeFilter === 'big' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`h-11 ${sizeFilter === 'big' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                  onClick={() => handleSizeFilter('big')}
+                >Big</Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -449,7 +544,7 @@ export default function App() {
                 }`}
                 onClick={() => setCommonFilter('all')}
               >
-                All
+                All ({results.length})
               </Button>
               <Button
                 variant={commonFilter === 'common' ? "default" : "outline"}
@@ -461,7 +556,7 @@ export default function App() {
                 }`}
                 onClick={() => setCommonFilter('common')}
               >
-                Common
+                Common ({commonCounts.common})
               </Button>
               <Button
                 variant={commonFilter === 'uncommon' ? "default" : "outline"}
@@ -473,7 +568,7 @@ export default function App() {
                 }`}
                 onClick={() => setCommonFilter('uncommon')}
               >
-                Uncommon
+                Uncommon ({commonCounts.uncommon})
               </Button>
             </div>
             
@@ -507,7 +602,7 @@ export default function App() {
                   }`}
                   onClick={() => setMacroFilter('all')}
                 >
-                  All Types
+                  All Types ({filteredByRegion.length})
                 </Button>
                 <Button
                   variant={macroFilter === 'manmade' ? 'default' : 'outline'}
@@ -519,7 +614,7 @@ export default function App() {
                   }`}
                   onClick={() => setMacroFilter('manmade')}
                 >
-                  Man-made
+                  Man-made ({manCounts.man})
                 </Button>
                 <Button
                   variant={macroFilter === 'natural' ? 'default' : 'outline'}
@@ -531,7 +626,7 @@ export default function App() {
                   }`}
                   onClick={() => setMacroFilter('natural')}
                 >
-                  Natural
+                  Natural ({manCounts.nat})
                 </Button>
               </div>
             )}
@@ -579,7 +674,7 @@ export default function App() {
                 First: All ({filteredByMacro.length})
               </Button>
               {Object.entries(firstLetterCounts)
-                .sort(([a], [b]) => a.localeCompare(b))
+                .sort(([, cntA], [, cntB]) => cntB - cntA)
                 .map(([letter, cnt]) => (
                   <Button
                     key={letter}
@@ -604,8 +699,8 @@ export default function App() {
                 Last: All ({displayed.length})
               </Button>
               {Object.entries(lastLetterCounts)
-                .sort(([a],[b]) => a.localeCompare(b))
-                .map(([letter,cnt]) => (
+                .sort(([, cntA], [, cntB]) => cntB - cntA)
+                .map(([letter, cnt]) => (
                   <Button
                     key={letter}
                     variant={lastLetterFilter === letter ? 'default' : 'outline'}
@@ -655,12 +750,6 @@ export default function App() {
                 </Button>
               </div>
             )}
-
-            {/* Rhyme Filter Row */}
-            <div className="flex gap-2 mt-2">
-              <Button variant={rhymeFilter==='all'? 'default':'outline'} size="sm" className={`${rhymeFilter==='all'?'bg-gray-600':'bg-transparent border-gray-600'}`} onClick={()=>setRhymeFilter('all')}>Any</Button>
-              <Button variant={rhymeFilter==='rhyme'? 'default':'outline'} size="sm" className={`${rhymeFilter==='rhyme'?'bg-gray-600':'bg-transparent border-gray-600'}`} onClick={()=>setRhymeFilter('rhyme')}>Rhymes</Button>
-            </div>
 
             {displayed.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

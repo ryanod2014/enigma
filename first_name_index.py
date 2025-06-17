@@ -43,14 +43,25 @@ _DATA = [
 
 # --------------------------------------------------------------------------- #
 
+# holdable set loaded once
+HOLDABLE_FILE = Path(__file__).resolve().parent / "data" / "holdable_flags.tsv"
+HOLDABLE_SET: set[str] = set()
+if HOLDABLE_FILE.is_file():
+    with HOLDABLE_FILE.open(encoding="utf-8") as hf:
+        reader = csv.reader(hf, delimiter="\t")
+        for row in reader:
+            if row and row[1] == "1":
+                HOLDABLE_SET.add(row[0].lower())
+
 # rhyme set loaded once
 RHYME_FILE = Path(__file__).resolve().parent / "data" / "rhyme_flags.tsv"
 RHYME_SET: set[str] = set()
 if RHYME_FILE.is_file():
-    with RHYME_FILE.open() as rf:
-        for line in rf:
-            word, flag = line.strip().split("\t")
-            RHYME_SET.add(word.lower())
+    with RHYME_FILE.open(encoding="utf-8") as rf:
+        reader = csv.reader(rf, delimiter="\t")
+        for row in reader:
+            if row and row[1] == "1":
+                RHYME_SET.add(row[0].lower())
 
 def _vowel_positions(word: str) -> Tuple[int, ...]:
     """Return 1-based positions of vowels in *word* (case-insensitive)."""
@@ -138,6 +149,7 @@ class FirstNameIndex:
                 "has_nickname": name in self._nick_set,
                 "rhyme": name in RHYME_SET,
                 "nick_count": self._nick_count.get(name, 0),
+                "holdable": name in HOLDABLE_SET,
             }
             key = (len(name), name[0], first_v, second_v)
             self.index.setdefault(key, []).append((name, meta))
@@ -169,15 +181,15 @@ class FirstNameIndex:
         common: bool | None = None,
         nickname: str | None = None,
         rhyme: bool | None = None,
-        ms: bool | None = None,
+        holdable: bool | None = None,
     ) -> List[str]:
         """Exact-letter query; returns matching first names."""
         results = self._lookup(length, first_letter, first_vowel_pos, second_vowel_pos)
-        if ms is True:
+        if holdable is True:
             results=[n for n in results if n[0] in {'m','t','s','f','w'}]
-        elif ms is False:
+        elif holdable is False:
             results=[n for n in results if n[0] not in {'m','t','s','f','w'}]
-        return self._filter(results, gender, origin, common, nickname, rhyme)
+        return self._filter(results, gender, origin, common, nickname, rhyme, holdable)
 
     def query_category(
         self,
@@ -192,7 +204,7 @@ class FirstNameIndex:
         common: bool | None = None,
         nickname: str | None = None,
         rhyme: bool | None = None,
-        ms: bool | None = None,
+        holdable: bool | None = None,
     ) -> List[str]:
         if category not in CATEGORY_MAP:
             raise ValueError("category must be 1, 2, or 3")
@@ -224,11 +236,11 @@ class FirstNameIndex:
                 dedup = [(n, m) for n, m in dedup if len(_vowel_positions(n)) <= 2]
 
         # Remaining meta-based filters
-        if ms is True:
+        if holdable is True:
             dedup=[(n,m) for n,m in dedup if n[0] in {'m','t','s','f','w'}]
-        elif ms is False:
+        elif holdable is False:
             dedup=[(n,m) for n,m in dedup if n[0] not in {'m','t','s','f','w'}]
-        return self._filter(dedup, gender, origin, common, nickname, rhyme)
+        return self._filter(dedup, gender, origin, common, nickname, rhyme, holdable)
 
     # ------------------------------------------------------------------ #
     def _filter(
@@ -239,6 +251,7 @@ class FirstNameIndex:
         common: bool | None,
         nickname: str | None,
         rhyme: bool | None,
+        holdable: bool | None,
     ) -> List[str]:
         out: List[str] = []
         for name, meta in items:
@@ -259,6 +272,10 @@ class FirstNameIndex:
             if rhyme is True and not meta.get("rhyme"):
                 continue
             if rhyme is False and meta.get("rhyme"):
+                continue
+            if holdable is True and not meta.get("holdable"):
+                continue
+            if holdable is False and meta.get("holdable"):
                 continue
             out.append(name)
         return out 

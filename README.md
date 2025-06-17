@@ -301,3 +301,23 @@ This project is open source and available under the [MIT License](LICENSE).
 - **WordFreq**: For word frequency data
 - **Shadcn**: For beautiful UI components
 - **FastAPI Team**: For the excellent web framework 
+
+### 2025-Jun-17: Bug fix – `/query` endpoint 500
+
+* **Problem** `WordIndex.query_category()` switched to returning `List[str]`, but the `/query` FastAPI handler still expected a list of dicts. This caused a `TypeError` and a 500 response for every request.
+* **Fix** Updated `api/main.py`:
+  * Import `HOLDABLE_SET`.
+  * Treat return value as `words_raw: List[str]`.
+  * Re-fetch holdable flag via `w in HOLDABLE_SET`.
+* Front-end now receives results again. 
+
+### 2025-Jun-17: Common / Uncommon filter restored for nouns
+
+* Added `common: bool` field to `WordOut` model in `api/main.py` and populated it with the existing `is_common` logic (Zipf ≥ 4.0).
+* Front-end logic already expects `.common`; filter now works across words, names, and places consistently. 
+* Added `common` field to `PlaceOut` so place results also include it (population-based / well-known flag). 
+
+### 2025-Jun-17: V1 / V2 vowel-category filters
+
+* Front-end: added V1 and V2 selector buttons (reuse same 3 icon buckets). Request sends `v1_cat` / `v2_cat`.
+* API: models now include `v1_cat` and `v2_cat`. Each endpoint filters words/names/places by checking the letter at the specified vowel position against `CATEGORY_MAP`. 

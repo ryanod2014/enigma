@@ -41,6 +41,8 @@ try:
 except ImportError:  # network issues or pkg not installed
     zipf_frequency = None  # type: ignore
 
+import csv
+
 # Make sure WordNet corpora are present -------------------------------------- #
 try:
     wn.synsets("dog")
@@ -136,11 +138,24 @@ def _char_at(word: str, pos: int) -> str:
     return ""
 
 
+# holdable set loaded once
+HOLDABLE_FILE = Path(__file__).resolve().parent / "data" / "holdable_flags.tsv"
+HOLDABLE_SET: set[str] = set()
+if HOLDABLE_FILE.is_file():
+    with HOLDABLE_FILE.open() as hf:
+        for line in hf:
+            word, flag = line.strip().split("\t")
+            if flag == "1":
+                HOLDABLE_SET.add(word.lower())
+
+# rhyme set loaded once
+RHYME_FILE = Path(__file__).resolve().parent / "data" / "rhyme_flags.tsv"
+
 class WordIndex:
     """Build once, then lightning‑fast `query()` calls."""
 
     def __init__(self):
-        self.index: Dict[Tuple[int, str, int, int], List[str]] = {}
+        self.index: Dict[Tuple[int, str, int, int], List[Dict[str, any]]] = {}
         self._build()
 
     def _build(self) -> None:
@@ -195,13 +210,23 @@ class WordIndex:
                     if all(lem.count() < 2 for lem in primary_synsets[0].lemmas() if lem.name() == w.replace(" ", "_")):
                         continue
 
+                # Add holdable flag
+                is_holdable_flag = w in HOLDABLE_SET
+
                 key = (len(w.replace(" ", "")), w[0], first_v, second_v)
-                self.index.setdefault(key, []).append(w)
+                self.index.setdefault(key, []).append(
+                    {"word": w, "holdable": is_holdable_flag}
+                )
 
         # deduplicate while preserving order
         for k, lst in self.index.items():
             seen = set()
-            self.index[k] = [x for x in lst if not (x in seen or seen.add(x))]
+            deduped = []
+            for item in lst:
+                if item["word"] not in seen:
+                    deduped.append(item)
+                    seen.add(item["word"])
+            self.index[k] = deduped
 
         print(f"[index] done – {len(self.index):,} unique (len,letter,v1,v2) keys", file=sys.stderr)
 
@@ -210,9 +235,11 @@ class WordIndex:
     def query(
         self,
         length: int,
-        first_letter: str,
-        first_vowel_pos: int,
+        first_letter: str = "",
+        first_vowel_pos: int = 0,
         second_vowel_pos: int = 0,
+        category: int = 0,
+        holdable: bool | None = None,
     ) -> List[str]:
         """Return nouns matching the exact pattern (list may be empty)."""
         return self.index.get(
@@ -228,6 +255,7 @@ class WordIndex:
         second_vowel_pos: int = 0,
         random_constraint: str | None = None,
         more_vowels: bool | None = None,
+        holdable: bool | None = None,
     ) -> List[str]:
         """Advanced query using *first-letter category* instead of exact letter.
 
@@ -238,20 +266,30 @@ class WordIndex:
             second_vowel_pos: 1-based index of second vowel, or 0 if none
             random_constraint: optional string like "5S" meaning *s* is 5th letter
             more_vowels: if True → word has >2 vowels; if False → ≤2 vowels; if None ignore
+            holdable: if True → only holdable words; if False → only non-holdable words; if None ignore
         """
         if category not in CATEGORY_MAP:
             raise ValueError(f"Unknown category {category}. Must be 1, 2, or 3.")
 
         # gather candidates from all letters in the category
-        candidates: List[str] = []
+        candidates: List[Dict[str, any]] = []
         for letter in CATEGORY_MAP[category]:
-            candidates.extend(
-                self.query(length, letter.lower(), first_vowel_pos, second_vowel_pos)
-            )
+            key = (length, letter.lower(), first_vowel_pos, second_vowel_pos)
+            candidates.extend(self.index.get(key, []))
 
         # deduplicate (preserve order)
-        seen: set[str] = set()
-        deduped = [w for w in candidates if not (w in seen or seen.add(w))]
+        seen_words: set[str] = set()
+        deduped = []
+        for item in candidates:
+            if item["word"] not in seen_words:
+                deduped.append(item)
+                seen_words.add(item["word"])
+
+        # Apply holdable filter
+        if holdable is True:
+            deduped = [item for item in deduped if item["holdable"]]
+        elif holdable is False:
+            deduped = [item for item in deduped if not item["holdable"]]
 
         # Apply optional filters ------------------------------------------------
         if random_constraint:
@@ -261,7 +299,7 @@ class WordIndex:
                     "random_constraint must look like '5S' (position followed by letter)"
                 )
             pos, letter = int(m.group(1)), m.group(2).lower()
-            deduped = [w for w in deduped if _char_at(w, pos) == letter]
+            deduped = [item for item in deduped if _char_at(item["word"], pos) == letter]
 
         if more_vowels is not None:
             if more_vowels:
@@ -269,7 +307,7 @@ class WordIndex:
             else:
                 deduped = [w for w in deduped if len(vowel_positions(w)) <= 2]
 
-        return deduped
+        return [item["word"] for item in deduped]
 
 
 # -------------------------------------------------------------------------- #
