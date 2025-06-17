@@ -353,7 +353,6 @@ def query_first_name(q: NameQueryIn):
         common=q.common,
         nickname=q.nickname,
         rhyme=q.rhyme,
-        ms=q.ms,
         holdable=q.holdable,
     )
 
