@@ -242,7 +242,7 @@ The system uses a curated database of ~1,500 physical objects sourced from WordN
 - **Allowed categories**: Artifacts, animals, plants, body parts, substances, vehicles
 
 - **Places index**: …
-- **First-name index**: built from U.S. SSA baby-names corpus (100k names). Generate once:
+- **First-name index**: built from U.S. SSA baby-names corpus (100k names). Optional nickname filter via built-in `nicknames.tsv`. Generate once:
   ```bash
   # automatic download
   python scripts/build_first_names.py

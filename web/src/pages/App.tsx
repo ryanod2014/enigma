@@ -26,6 +26,7 @@ export default function App() {
   const [mustLetters, setMustLetters] = useState<string>('');
   const [moreVowels, setMoreVowels] = useState<boolean | undefined>();
   const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false); // true after first query
   const [commonFilter, setCommonFilter] = useState<CommonFilter>('all');
   const [macroFilter, setMacroFilter] = useState<'all' | 'manmade' | 'natural'>('all');
   const [results, setResults] = useState<Result[]>([]);
@@ -34,6 +35,8 @@ export default function App() {
   const [mode, setMode] = useState<'words' | 'places' | 'names'>('words');
   const [regionFilter, setRegionFilter] = useState<string>(''); // continent code filter
   const [firstLetterFilter, setFirstLetterFilter] = useState<string>('all');
+  const [lastLetterFilter, setLastLetterFilter] = useState<string>('all');
+  const [nicknameFilter, setNicknameFilter] = useState<'all'|'nickname'|'multiple'|'none'>('all');
 
   const REGION_LABELS: Record<string,string> = {
     'EU': 'Europe',
@@ -45,13 +48,16 @@ export default function App() {
     'OTHER': 'Other',
   };
 
-  // Re-run query automatically when switching common/uncommon in Places mode
+  // Re-run query automatically when toggling server-side filters
   useEffect(() => {
     if (mode === 'places') {
       submit();
+    } else if (mode === 'names') {
+      // only nicknameFilter requires backend
+      submit();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commonFilter, mode]);
+  }, [nicknameFilter, mode]);
 
   // No lex set needed; API provides manmade flag
 
@@ -106,8 +112,8 @@ export default function App() {
         }
       } else if (mode === 'names') {
         endpoint = '/query_first_name';
-        if (commonFilter !== 'all') {
-          body.common = commonFilter === 'common';
+        if (nicknameFilter !== 'all') {
+          body.nickname = nicknameFilter;
         }
       }
 
@@ -125,6 +131,7 @@ export default function App() {
       setResults(data.results);
       setLexCounts(data.by_lexname);
       setLexFilter('all');
+      setSearched(true);
     } catch (error) {
       console.error('Error submitting query:', error);
     } finally {
@@ -180,6 +187,10 @@ export default function App() {
     if (firstLetterFilter !== 'all') {
       if (r.word[0].toUpperCase() !== firstLetterFilter) return false;
     }
+    if (lastLetterFilter !== 'all') {
+      const last = r.word[r.word.length - 1].toUpperCase();
+      if (last !== lastLetterFilter) return false;
+    }
     return true;
   });
 
@@ -199,9 +210,27 @@ export default function App() {
     return acc;
   }, {} as Record<string, number>);
 
-  // Reset FL filter whenever new results arrive (new query)
+  // Build list after all active filters *except* last-letter so counts stay in sync
+  const listBeforeLastFilter = filteredByMacro.filter(r => {
+    if (lexFilter !== 'all') {
+      if (!r.lex || cleanLexName(r.lex) !== lexFilter) return false;
+    }
+    if (firstLetterFilter !== 'all') {
+      if (r.word[0].toUpperCase() !== firstLetterFilter) return false;
+    }
+    return true;
+  });
+
+  const lastLetterCounts = listBeforeLastFilter.reduce((acc, r) => {
+    const last = r.word[r.word.length - 1].toUpperCase();
+    acc[last] = (acc[last] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Reset FL and LL filters whenever new results arrive (new query)
   useEffect(() => {
     setFirstLetterFilter('all');
+    setLastLetterFilter('all');
   }, [results]);
 
   return (
@@ -389,13 +418,13 @@ export default function App() {
         )}
 
         {/* Results */}
-        {!loading && Object.keys(lexCounts).length > 0 && (
+        {!loading && searched && results.length > 0 && (
           <div className="space-y-4">
             <div className="text-sm text-gray-400">
               Found {filteredByMacro.length} results, showing {displayed.length}
             </div>
             
-            {/* Frequency Filter Buttons */}
+            {/* Frequency + Nickname Filter Buttons */}
             <div className="flex gap-2">
               <Button
                 variant={commonFilter === 'all' ? "default" : "outline"}
@@ -534,7 +563,7 @@ export default function App() {
                 className={`${firstLetterFilter === 'all' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
                 onClick={() => setFirstLetterFilter('all')}
               >
-                All ({filteredByMacro.length})
+                First: All ({filteredByMacro.length})
               </Button>
               {Object.entries(firstLetterCounts)
                 .sort(([a], [b]) => a.localeCompare(b))
@@ -550,6 +579,69 @@ export default function App() {
                   </Button>
                 ))}
             </div>
+
+            {/* Last-letter filter buttons */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              <Button
+                variant={lastLetterFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                className={`${lastLetterFilter === 'all' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                onClick={() => setLastLetterFilter('all')}
+              >
+                Last: All ({displayed.length})
+              </Button>
+              {Object.entries(lastLetterCounts)
+                .sort(([a],[b]) => a.localeCompare(b))
+                .map(([letter,cnt]) => (
+                  <Button
+                    key={letter}
+                    variant={lastLetterFilter === letter ? 'default' : 'outline'}
+                    size="sm"
+                    className={`${lastLetterFilter === letter ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                    onClick={() => setLastLetterFilter(letter)}
+                  >
+                    {letter} ({cnt})
+                  </Button>
+                ))}
+            </div>
+
+            {/* Nickname Filter Row (Names mode) */}
+            {mode === 'names' && (
+              <div className="flex gap-2 mt-2">
+                <Button
+                  variant={nicknameFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`${nicknameFilter === 'all' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                  onClick={() => setNicknameFilter('all')}
+                >
+                  Any
+                </Button>
+                <Button
+                  variant={nicknameFilter === 'none' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`${nicknameFilter === 'none' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                  onClick={() => setNicknameFilter('none')}
+                >
+                  None
+                </Button>
+                <Button
+                  variant={nicknameFilter === 'nickname' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`${nicknameFilter === 'nickname' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                  onClick={() => setNicknameFilter('nickname')}
+                >
+                  Nickname
+                </Button>
+                <Button
+                  variant={nicknameFilter === 'multiple' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`${nicknameFilter === 'multiple' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                  onClick={() => setNicknameFilter('multiple')}
+                >
+                  Multiple
+                </Button>
+              </div>
+            )}
 
             {displayed.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

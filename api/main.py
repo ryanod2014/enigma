@@ -79,6 +79,7 @@ class NameQueryIn(BaseModel):
     random: Optional[str] = None
     more_vowels: Optional[bool] = None
     last_category: Optional[int] = None
+    nickname: Optional[str] = None  # 'nickname'|'multiple'|'none'
 
 
 class NameOut(BaseModel):
@@ -87,6 +88,7 @@ class NameOut(BaseModel):
     lex: str  # use gender as lex category
     manmade: bool = False  # placeholder to reuse UI logic
     origin: str | None = None
+    common: bool | None = None
 
 
 @app.get("/health")
@@ -250,6 +252,7 @@ def query_first_name(q: NameQueryIn):
         gender=q.gender,
         origin=q.origin,
         common=q.common,
+        nickname=q.nickname,
     )
 
     # last letter category filter
@@ -275,12 +278,14 @@ def query_first_name(q: NameQueryIn):
 
         count = meta.get("count", 0)
         freq_val = (count / 10_000.0) if count else 0.1
+        is_common = meta.get("rank_us", 0) and meta.get("rank_us", 0) <= 200
         resp.append(
             NameOut(
                 word=n,
                 freq=freq_val,
                 lex=meta.get("gender", "u"),
                 origin=meta.get("origin"),
+                common=is_common,
             )
         )
 

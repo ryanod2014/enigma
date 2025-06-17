@@ -57,9 +57,12 @@ def _char_at(word: str, pos: int) -> str:
 class FirstNameIndex:
     """Fast lookup index for first names."""
 
-    def __init__(self, data_path: str | Path | None = None):
+    def __init__(self, data_path: str | Path | None = None, nick_path: str | Path | None = None):
         # Key → list[(name, meta)] where key=(len, first_letter, v1, v2)
         self.index: Dict[Tuple[int, str, int, int], List[Tuple[str, Dict]]] = {}
+        self._nick_set: set[str] = set()
+        self._nick_count: dict[str,int] = {}
+        self._load_nicknames(nick_path)
         self._build(data_path)
 
     # ------------------------------------------------------------------ #
@@ -87,6 +90,27 @@ class FirstNameIndex:
         for rec in _DATA:
             yield rec
 
+    def _load_nicknames(self, nick_path: str | Path | None):
+        """Populate _nick_set with formal names that have nicknames."""
+        if nick_path is None:
+            cand_full = Path(__file__).resolve().parent / "data" / "nicknames_full.tsv"
+            cand_small = Path(__file__).resolve().parent / "data" / "nicknames.tsv"
+            if cand_full.is_file():
+                nick_path = cand_full
+            elif cand_small.is_file():
+                nick_path = cand_small
+        if not nick_path or not Path(nick_path).is_file():
+            return
+        with Path(nick_path).open(encoding="utf-8") as f:
+            for line in f:
+                if not line.strip() or line.startswith("#"):
+                    continue
+                parts = line.strip().split("\t")
+                formal = parts[0].strip().lower()
+                nicknames = parts[1].split(",") if len(parts) > 1 else []
+                self._nick_set.add(formal)
+                self._nick_count[formal] = len([n for n in nicknames if n])
+
     def _build(self, data_path: str | Path | None):
         for name, gender, origin, rank_us, rank_world in self._load_rows(data_path):
             if " " in name:
@@ -102,6 +126,8 @@ class FirstNameIndex:
                 "rank_us": rank_us,
                 "count": rank_world,
                 "common": rank_us and rank_us <= 200 or rank_world and rank_world <= 200,
+                "has_nickname": name in self._nick_set,
+                "nick_count": self._nick_count.get(name, 0),
             }
             key = (len(name), name[0], first_v, second_v)
             self.index.setdefault(key, []).append((name, meta))
@@ -131,10 +157,11 @@ class FirstNameIndex:
         gender: str | None = None,
         origin: str | None = None,
         common: bool | None = None,
+        nickname: str | None = None,
     ) -> List[str]:
         """Exact-letter query; returns matching first names."""
         results = self._lookup(length, first_letter, first_vowel_pos, second_vowel_pos)
-        return self._filter(results, gender, origin, common)
+        return self._filter(results, gender, origin, common, nickname)
 
     def query_category(
         self,
@@ -147,6 +174,7 @@ class FirstNameIndex:
         gender: str | None = None,
         origin: str | None = None,
         common: bool | None = None,
+        nickname: str | None = None,
     ) -> List[str]:
         if category not in CATEGORY_MAP:
             raise ValueError("category must be 1, 2, or 3")
@@ -178,7 +206,7 @@ class FirstNameIndex:
                 dedup = [(n, m) for n, m in dedup if len(_vowel_positions(n)) <= 2]
 
         # Remaining meta-based filters
-        return self._filter(dedup, gender, origin, common)
+        return self._filter(dedup, gender, origin, common, nickname)
 
     # ------------------------------------------------------------------ #
     def _filter(
@@ -187,6 +215,7 @@ class FirstNameIndex:
         gender: str | None,
         origin: str | None,
         common: bool | None,
+        nickname: str | None,
     ) -> List[str]:
         out: List[str] = []
         for name, meta in items:
@@ -197,6 +226,12 @@ class FirstNameIndex:
             if common is True and not meta["common"]:
                 continue
             if common is False and meta["common"]:
+                continue
+            if nickname == 'nickname' and not meta.get("has_nickname"):
+                continue
+            if nickname == 'multiple' and meta.get("nick_count",0) < 2:
+                continue
+            if nickname == 'none' and meta.get("has_nickname"):
                 continue
             out.append(name)
         return out 
