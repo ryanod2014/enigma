@@ -6,6 +6,7 @@ import csv
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
 
 from wordnet_vowel_index import (
     WordIndex,
@@ -412,4 +413,7 @@ def query_first_name(q: NameQueryIn):
     for r in resp:
         by_gender[r.lex] = by_gender.get(r.lex, 0) + 1
 
-    return {"results": [r.dict() for r in resp], "by_lexname": by_gender} 
+    return {"results": [r.dict() for r in resp], "by_lexname": by_gender}
+
+# Mount compiled React frontend
+app.mount("/", StaticFiles(directory=Path(__file__).resolve().parent.parent / "web" / "dist", html=True), name="static") 
