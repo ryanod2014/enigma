@@ -534,8 +534,8 @@ export default function App() {
               V=2+
             </Button>
             {/* MTSF buttons inline */}
-            <Button variant={msFilter === 'yes' ? 'default' : 'outline'} size="sm" className={`h-11 ${msFilter === 'yes' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`} onClick={() => setMsFilter(msFilter === 'yes' ? 'all' : 'yes')}>✓ M-S</Button>
-            <Button variant={msFilter === 'no' ? 'default' : 'outline'} size="sm" className={`h-11 ${msFilter === 'no' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`} onClick={() => setMsFilter(msFilter === 'no' ? 'all' : 'no')}>✕ M-S</Button>
+            <Button variant={msFilter === 'yes' ? 'default' : 'outline'} size="sm" className={`h-11 ${msFilter === 'yes' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`} onClick={() => setMsFilter(msFilter === 'yes' ? 'all' : 'yes')}>✓ M/T/W/F/S</Button>
+            <Button variant={msFilter === 'no' ? 'default' : 'outline'} size="sm" className={`h-11 ${msFilter === 'no' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`} onClick={() => setMsFilter(msFilter === 'no' ? 'all' : 'no')}>✕ M/T/W/F/S</Button>
             {mode === 'words' && (
               <>
                 <Button
