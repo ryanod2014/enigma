@@ -336,3 +336,10 @@ This project is open source and available under the [MIT License](LICENSE).
 
 * Front-end: added V1 and V2 selector buttons (reuse same 3 icon buckets). Request sends `v1_cat` / `v2_cat`.
 * API: models now include `v1_cat` and `v2_cat`. Each endpoint filters words/names/places by checking the letter at the specified vowel position against `CATEGORY_MAP`. 
+
+### 2025-Jun-17: Country key generator utility
+
+* Added `scripts/generate_country_keys.py` to create a CSV listing unique (letters, category, V1, V2) keys for a curated set of country names.  
+  ```bash
+  python scripts/generate_country_keys.py > country_keys.csv
+  ``` 
