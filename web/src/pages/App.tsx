@@ -112,11 +112,7 @@ export default function App() {
       let endpoint = '/query';
       if (mode === 'places') {
         endpoint = '/query_place';
-        // Don't send place_type - search both countries and cities
-        // Send common filter to backend for places
-        if (commonFilter !== 'all') {
-          body.common = commonFilter === 'common';
-        }
+        // common filter handled client-side for places
       } else if (mode === 'names') {
         endpoint = '/query_first_name';
         // no nickname param; handled client-side
@@ -150,19 +146,69 @@ export default function App() {
     }
   }
 
-  // Compute common/uncommon counts for current result set (before common filter applied)
-  const commonCounts = results.reduce((acc, r) => {
+  // Compute common/uncommon counts after applying all active filters EXCEPT common filter itself
+  const baseForCommon = (() => {
+    // Start with raw results then apply every filter except common/uncommon flag
+    // 1) nickname/ms/size filters (same logic as filteredByFrequency but skipping common)
+    return results.filter(r => {
+      let ok = true;
+      if (mode === 'places') {
+        // nickname filters not used in places
+      } else {
+        // nickname filter (names mode only)
+        if (nicknameFilter === 'nickname') ok = ok && (r as any).has_nickname === true;
+        if (nicknameFilter === 'multiple') ok = ok && ((r as any).nick_count || 0) >= 2;
+        if (nicknameFilter === 'none') ok = ok && (r as any).has_nickname === false;
+      }
+
+      if (msFilter === 'yes') ok = ok && ['m','t','s','f','w'].includes(r.word[0].toLowerCase());
+      if (msFilter === 'no') ok = ok && !['m','t','s','f','w'].includes(r.word[0].toLowerCase());
+
+      if (sizeFilter === 'small') ok = ok && (r as any).holdable === true;
+      if (sizeFilter === 'big') ok = ok && (r as any).holdable === false;
+
+      // Region filter for places
+      if(mode==='places' && regionFilter){
+        const code = r.region ? r.region.toUpperCase() : 'OTHER';
+        ok = ok && code === regionFilter;
+      }
+
+      // Macro filter for words
+      if(mode==='words'){
+        if(macroFilter==='manmade') ok = ok && r.manmade;
+        if(macroFilter==='natural') ok = ok && !r.manmade;
+      }
+
+      // Lex, FL, LL filters
+      if (lexFilter !== 'all') {
+        if (!r.lex || cleanLexName(r.lex) !== lexFilter) ok = false;
+      }
+      if (firstLetterFilter !== 'all') {
+        if (r.word[0].toUpperCase() !== firstLetterFilter) ok = false;
+      }
+      if (lastLetterFilter !== 'all') {
+        const last = r.word[r.word.length-1].toUpperCase();
+        if(last!== lastLetterFilter) ok = false;
+      }
+      return ok;
+    });
+  })();
+
+  const commonCounts = baseForCommon.reduce((acc, r)=>{
     const isCommon = (r as any).common === true;
-    if (isCommon) acc.common += 1; else acc.uncommon +=1;
+    if(isCommon) acc.common +=1; else acc.uncommon +=1;
     return acc;
   }, {common:0, uncommon:0});
 
   // Filter results by frequency and lexical category
   const filteredByFrequency = results.filter(r => {
-    if (mode === 'places') return true;
-
     let ok = true;
-    // common/uncommon filter
+    if (mode === 'places') {
+      if (commonFilter === 'common') ok = ok && (r as any).common === true;
+      if (commonFilter === 'uncommon') ok = ok && (r as any).common === false;
+      return ok;
+    }
+
     if (commonFilter === 'common') ok = ok && (r as any).common === true;
     if (commonFilter === 'uncommon') ok = ok && (r as any).common === false;
 
@@ -268,6 +314,13 @@ export default function App() {
     setFirstLetterFilter('all');
     setLastLetterFilter('all');
   }, [results]);
+
+  // Clear previous results when switching modes to avoid showing stale filters
+  useEffect(() => {
+    setResults([]);
+    setLexCounts({});
+    setSearched(false);
+  }, [mode]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -532,6 +585,33 @@ export default function App() {
               Found {filteredByMacro.length} results, showing {displayed.length}
             </div>
             
+            {/* City / Country filter row - now above frequency row */}
+            {mode === 'places' && (
+              <div className="flex gap-2 mt-2">
+                <Button
+                  variant={lexFilter === 'all' ? "default" : "outline"}
+                  size="sm"
+                  className={`${lexFilter === 'all' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                  onClick={() => setLexFilter('all')}
+                >
+                  All ({filteredByMacro.length})
+                </Button>
+                {Object.entries(filteredLexCounts)
+                  .sort(([, aCount], [, bCount]) => bCount - aCount)
+                  .map(([cleanedLex, cnt]) => (
+                    <Button
+                      key={cleanedLex}
+                      variant={lexFilter === cleanedLex ? "default" : "outline"}
+                      size="sm"
+                      className={`${lexFilter === cleanedLex ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                      onClick={() => setLexFilter(cleanedLex)}
+                    >
+                      {getLexLabel(cleanedLex)} ({cnt})
+                    </Button>
+                  ))}
+              </div>
+            )}
+            
             {/* Frequency + Nickname Filter Buttons */}
             <div className="flex gap-2">
               <Button
@@ -631,6 +711,8 @@ export default function App() {
               </div>
             )}
             
+            {/* Lex filter row (non-places) or second rendering for words/names */}
+            {mode !== 'places' && (
             <div className="flex flex-wrap gap-2">
               <Button
                 variant={lexFilter === 'all' ? "default" : "outline"}
@@ -645,7 +727,7 @@ export default function App() {
                 All ({filteredByMacro.length})
               </Button>
               {Object.entries(filteredLexCounts)
-                .sort(([, aCount], [, bCount]) => bCount - aCount) // Sort by count descending
+                .sort(([, aCount], [, bCount]) => bCount - aCount)
                 .map(([cleanedLex, cnt]) => (
                   <Button
                     key={cleanedLex}
@@ -662,6 +744,7 @@ export default function App() {
                   </Button>
                 ))}
             </div>
+            )}
 
             {/* First-letter filter buttons */}
             <div className="flex flex-wrap gap-2 mt-2">
