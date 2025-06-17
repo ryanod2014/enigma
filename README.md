@@ -283,6 +283,21 @@ npm run build
 # Serve the dist/ directory with any static file server
 ```
 
+### Replit (Always-Hot) Deployment
+Follow these one-time steps to deploy to Replit so the API starts once and stays hot between requests.
+
+1. **Add the `.replit` file** (already committed in repo):
+   ```ini
+   run = "uvicorn api.main:app --host 0.0.0.0 --port 8000"
+   ```
+2. **Import the repo**: In Replit → **Create** → **Import from GitHub** → select this repository.
+3. **Install & test**: Replit auto-installs `requirements.txt`; press **Run** and check `/health` returns `{ "status": "ok" }`.
+4. **Keep it awake**:
+   • Choose **Deploy → Reserved VM** (no sleep) **or** Enable **Autoscale** + ping `/health` every 5 min.
+5. **Redeploy on changes**: Push commits to GitHub, then click **Deploy → Build & Deploy**.
+
+After the first boot the container stays resident, so every subsequent API call responds instantly.
+
 ## Contributing
 
 1. Fork the repository
