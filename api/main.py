@@ -128,6 +128,7 @@ class NameOut(BaseModel):
     common: bool | None = None
     has_nickname: bool | None = None
     nick_count: int | None = None
+    is_nickname: bool | None = None
     holdable: Optional[bool] = None
 
 
@@ -430,9 +431,13 @@ def query_first_name(q: NameQueryIn):
                 common=is_common,
                 has_nickname=meta.get("has_nickname"),
                 nick_count=meta.get("nick_count", 0),
+                is_nickname=meta.get("is_nickname"),
                 holdable=meta.get("holdable"),
             )
         )
+
+    # Prune ultra-obscure names (freq < 0.4)
+    resp = [r for r in resp if r.freq >= 0.4]
 
     resp.sort(key=lambda r: (-r.freq, r.word))
 

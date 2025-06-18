@@ -33,7 +33,7 @@ export default function App() {
   const [lexCounts, setLexCounts] = useState<Record<string, number>>({});
   const [mode, setMode] = useState<'words' | 'places' | 'names'>('words');
   const [regionFilter, setRegionFilter] = useState<string>(''); // continent code filter
-  const [nicknameFilter, setNicknameFilter] = useState<'all'|'nickname'|'multiple'|'none'>('all');
+  const [nicknameFilter, setNicknameFilter] = useState<'all'|'nickname'|'multiple'|'none'|'is_nick'>('all');
   const [msFilter, setMsFilter] = useState<'all'|'yes'|'no'>('all');
   const [sizeFilter, setSizeFilter] = useState<'all' | 'small' | 'big'>('all');
   const [letterEfficiency, setLetterEfficiency] = useState<number[]>([]);
@@ -108,7 +108,7 @@ export default function App() {
         // common filter handled client-side for places
       } else if (mode === 'names') {
         endpoint = '/query_first_name';
-        // no nickname param; handled client-side
+        if (nicknameFilter !== 'all') body.nickname = nicknameFilter;
       }
 
       // rhyme filter removed
@@ -168,6 +168,7 @@ export default function App() {
     if (nicknameFilter === 'nickname') ok = ok && (r as any).has_nickname === true;
     if (nicknameFilter === 'multiple') ok = ok && ((r as any).nick_count || 0) >= 2;
     if (nicknameFilter === 'none') ok = ok && (r as any).has_nickname === false;
+    if (nicknameFilter === 'is_nick') ok = ok && (r as any).is_nickname === true;
 
     if (msFilter === 'yes') ok = ok && ['m', 't', 's', 'f', 'w'].includes(r.word[0].toLowerCase());
     if (msFilter === 'no') ok = ok && !['m', 't', 's', 'f', 'w'].includes(r.word[0].toLowerCase());
@@ -307,6 +308,7 @@ export default function App() {
         if (nicknameFilter === 'nickname') ok = ok && (r as any).has_nickname === true;
         if (nicknameFilter === 'multiple') ok = ok && ((r as any).nick_count || 0) >= 2;
         if (nicknameFilter === 'none') ok = ok && (r as any).has_nickname === false;
+        if (nicknameFilter === 'is_nick') ok = ok && (r as any).is_nickname === true;
         if (msFilter === 'yes') ok = ok && ['m','t','s','f','w'].includes(r.word[0].toLowerCase());
         if (msFilter === 'no') ok = ok && !['m','t','s','f','w'].includes(r.word[0].toLowerCase());
         return ok;
@@ -779,6 +781,14 @@ export default function App() {
                   onClick={() => setNicknameFilter('multiple')}
                 >
                   Multiple
+                </Button>
+                <Button
+                  variant={nicknameFilter === 'is_nick' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`${nicknameFilter === 'is_nick' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                  onClick={() => setNicknameFilter('is_nick')}
+                >
+                  Is Nick
                 </Button>
               </div>
             )}

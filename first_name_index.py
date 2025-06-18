@@ -82,6 +82,8 @@ class FirstNameIndex:
         self.index: Dict[Tuple[int, str, int, int], List[Tuple[str, Dict]]] = {}
         self._nick_set: set[str] = set()
         self._nick_count: dict[str,int] = {}
+        # set of names that are nickname forms (appear as RHS in nicknames.tsv)
+        self._nickname_forms: set[str] = set()
         # NEW: flat map for O(1) meta lookup by name ----------------------------------
         self._meta_by_name: Dict[str, Dict] = {}
         self._load_nicknames(nick_path)
@@ -132,6 +134,11 @@ class FirstNameIndex:
                 nicknames = parts[1].split(",") if len(parts) > 1 else []
                 self._nick_set.add(formal)
                 self._nick_count[formal] = len([n for n in nicknames if n])
+                # collect each nickname form into its own set
+                for n in nicknames:
+                    n_clean = n.strip().lower()
+                    if n_clean:
+                        self._nickname_forms.add(n_clean)
 
     def _build(self, data_path: str | Path | None):
         for name, gender, origin, rank_us, rank_world in self._load_rows(data_path):
@@ -149,6 +156,7 @@ class FirstNameIndex:
                 "count": rank_world,
                 "common": rank_us and rank_us <= 200 or rank_world and rank_world <= 200,
                 "has_nickname": name in self._nick_set,
+                "is_nickname": name in self._nickname_forms,
                 "rhyme": name in RHYME_SET,
                 "nick_count": self._nick_count.get(name, 0),
                 "holdable": name in HOLDABLE_SET,
@@ -273,6 +281,8 @@ class FirstNameIndex:
             if nickname == 'multiple' and meta.get("nick_count",0) < 2:
                 continue
             if nickname == 'none' and meta.get("has_nickname"):
+                continue
+            if nickname == 'is_nick' and not meta.get("is_nickname"):
                 continue
             if rhyme is True and not meta.get("rhyme"):
                 continue
