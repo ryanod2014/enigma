@@ -370,6 +370,9 @@ class WordIndex:
                     seen.add(item["word"])
             self.index[k] = deduped
 
+        # After main build loop, fill in any missing metadata so UI size/manmade filters work
+        self._fill_missing_metadata()
+
         print(f"[index] done – {len(self.index):,} unique (len,letter,v1,v2) keys", file=sys.stderr)
 
     # ------------------------------------------------------------------ #
@@ -515,6 +518,25 @@ class WordIndex:
             self.index[k] = deduped
 
         print(f"[index] done – {len(self.index):,} keys from JSONL", file=sys.stderr)
+
+    # ------------------------------------------------------------------ #
+    def _fill_missing_metadata(self) -> None:
+        """Add `cat` and `manmade` flags to items that missed them during the
+        fallback WordNet path. Also ensure `holdable` is always present.
+        """
+        for lst in self.index.values():
+            for item in lst:
+                # Ensure holdable boolean exists (may already be present)
+                if 'holdable' not in item:
+                    item['holdable'] = item['word'] in HOLDABLE_SET
+
+                # Skip if already labeled
+                if 'manmade' in item and 'cat' in item:
+                    continue
+
+                bucket, man_flag = classify_subject(item['word'])
+                item['manmade'] = man_flag
+                item['cat'] = bucket
 
 
 # -------------------------------------------------------------------------- #

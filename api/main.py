@@ -209,10 +209,11 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
         resp.append(
             WordOut(
                 word=w,
+                freq=item.get("freq_count", 1),
                 lex=item.get("cat", "unknown"),
                 manmade=item.get("manmade", False),
                 common=item.get("common", False),
-                holdable=w in HOLDABLE_SET if w in HOLDABLE_SET else None,
+                holdable=item.get("holdable"),
             )
         )
 
@@ -222,7 +223,7 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
     elif q.common is False:
         resp = [r for r in resp if not r.common]
 
-    resp.sort(key=lambda r: r.word)
+    resp.sort(key=lambda r: (-r.freq, r.word))
 
     # Build counts by bucket (lex)
     bucket_counts: Dict[str, int] = {}
@@ -412,15 +413,8 @@ def query_first_name(q: NameQueryIn):
 
     # Build NameOut list
     for n in names:
-        # fetch meta via exact lookup
-        meta = None
-        for lst in names_index.index.values():
-            for name, md in lst:
-                if name == n:
-                    meta = md
-                    break
-            if meta:
-                break
+        # Fast constant-time meta retrieval using new helper
+        meta = names_index.get_meta(n)
         if not meta:
             continue
 

@@ -82,6 +82,8 @@ class FirstNameIndex:
         self.index: Dict[Tuple[int, str, int, int], List[Tuple[str, Dict]]] = {}
         self._nick_set: set[str] = set()
         self._nick_count: dict[str,int] = {}
+        # NEW: flat map for O(1) meta lookup by name ----------------------------------
+        self._meta_by_name: Dict[str, Dict] = {}
         self._load_nicknames(nick_path)
         self._build(data_path)
 
@@ -153,6 +155,8 @@ class FirstNameIndex:
             }
             key = (len(name), name[0], first_v, second_v)
             self.index.setdefault(key, []).append((name, meta))
+            # NEW: store in flat map for constant-time lookup -------------------------
+            self._meta_by_name[name] = meta
 
         # Deduplicate names preserving order --------------------------------
         for k, lst in self.index.items():
@@ -191,6 +195,7 @@ class FirstNameIndex:
             results=[n for n in results if n[0] not in {'m','t','s','f','w'}]
         return self._filter(results, gender, origin, common, nickname, rhyme, holdable)
 
+    @_lru(maxsize=8192)
     def query_category(
         self,
         length: int,
@@ -278,4 +283,8 @@ class FirstNameIndex:
             if holdable is False and meta.get("holdable"):
                 continue
             out.append(name)
-        return out 
+        return out
+
+    def get_meta(self, name: str) -> Dict | None:
+        """Return meta dict for *name* if present, else None."""
+        return self._meta_by_name.get(name) 

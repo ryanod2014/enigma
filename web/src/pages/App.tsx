@@ -21,9 +21,6 @@ type CommonFilter = 'all' | 'common' | 'uncommon';
 export default function App() {
   const [length, setLength] = useState<number>(4);
   const [category, setCategory] = useState<number>(1);
-  const [lastCategory, setLastCategory] = useState<number | null>(null);
-  const [v1Category, setV1Category] = useState<number | null>(null);
-  const [v2Category, setV2Category] = useState<number | null>(null);
   const [vowelsAndRandom, setVowelsAndRandom] = useState<string>(''); // Combined input like "123R"
   const [mustLetters, setMustLetters] = useState<string>('');
   const [moreVowels, setMoreVowels] = useState<boolean | undefined>();
@@ -104,10 +101,6 @@ export default function App() {
       const body: any = { length, category, v1, v2 };
       if (random) body.random = random;
       if (moreVowels !== undefined) body.more_vowels = moreVowels;
-      if (lastCategory !== null) body.last_category = lastCategory;
-      if (v1Category !== null) body.v1_cat = v1Category;
-      if (v2Category !== null) body.v2_cat = v2Category;
-      if (mustLetters.trim()) body.must_letters = mustLetters.trim();
       // Add place filters if in places mode
       let endpoint = '/query';
       if (mode === 'places') {
@@ -122,7 +115,6 @@ export default function App() {
       if (msFilter === 'yes') body.ms = true;
       if (msFilter === 'no') body.ms = false;
       if (sizeFilter === 'small') { body.holdable = true; }
-      else if (sizeFilter === 'big') { body.holdable = false; }
 
       console.log('Request body:', body);
       const res = await fetch(endpoint, {
@@ -147,64 +139,21 @@ export default function App() {
     }
   }
 
-  // Compute common/uncommon counts after applying all active filters EXCEPT common filter itself
-  const baseForCommon = (() => {
-    // Start with raw results then apply every filter except common/uncommon flag
-    // 1) nickname/ms/size filters (same logic as filteredByFrequency but skipping common)
+  // Apply position-based letter filters FIRST so every downstream computation already respects them
+  const positionFiltered = useMemo(() => {
     return results.filter(r => {
-      let ok = true;
-      if (mode === 'places') {
-        // nickname filters not used in places
-      } else {
-        // nickname filter (names mode only)
-        if (nicknameFilter === 'nickname') ok = ok && (r as any).has_nickname === true;
-        if (nicknameFilter === 'multiple') ok = ok && ((r as any).nick_count || 0) >= 2;
-        if (nicknameFilter === 'none') ok = ok && (r as any).has_nickname === false;
-      }
-
-      if (msFilter === 'yes') ok = ok && ['m','t','s','f','w'].includes(r.word[0].toLowerCase());
-      if (msFilter === 'no') ok = ok && !['m','t','s','f','w'].includes(r.word[0].toLowerCase());
-
-      if (sizeFilter === 'small') ok = ok && ((r as any).holdable !== false);
-      if (sizeFilter === 'big') ok = ok && ((r as any).holdable !== true);
-
-      // Region filter for places
-      if(mode==='places' && regionFilter){
-        const code = r.region ? r.region.toUpperCase() : 'OTHER';
-        ok = ok && code === regionFilter;
-      }
-
-      // Macro filter for words
-      if(mode==='words'){
-        if(macroFilter==='manmade') ok = ok && r.manmade;
-        if(macroFilter==='natural') ok = ok && !r.manmade;
-      }
-
-      // Position-based letter filters
       for (const [pos, letter] of Object.entries(positionFilters)) {
-        const position = parseInt(pos);
-        if (r.word.length >= position && r.word[position - 1].toUpperCase() !== letter) {
-          ok = false;
-          break;
+        const p = parseInt(pos);
+        if (r.word.length >= p && r.word[p - 1].toUpperCase() !== letter) {
+          return false;
         }
       }
-
-      // Lex filters
-      if (lexFilter !== 'all') {
-        if (!r.lex || cleanLexName(r.lex) !== lexFilter) ok = false;
-      }
-      return ok;
+      return true;
     });
-  })();
+  }, [results, positionFilters]);
 
-  const commonCounts = baseForCommon.reduce((acc, r)=>{
-    const isCommon = (r as any).common === true;
-    if(isCommon) acc.common +=1; else acc.uncommon +=1;
-    return acc;
-  }, {common:0, uncommon:0});
-
-  // Filter results by frequency and lexical category
-  const filteredByFrequency = results.filter(r => {
+  // Filter results by frequency and lexical category – starts from positionFiltered so counts stay in sync
+  const filteredByFrequency = positionFiltered.filter(r => {
     let ok = true;
     if (mode === 'places') {
       if (commonFilter === 'common') ok = ok && (r as any).common === true;
@@ -250,17 +199,38 @@ export default function App() {
   const totalCount = Object.values(regionCounts).reduce((sum, count) => sum + count, 0);
   const regionCountsWithAll = { '': totalCount, ...regionCounts };
 
-  // Compute man-made / natural counts (from filteredByRegion before macro filter)
-  const manCounts = filteredByRegion.reduce((acc, r) => {
-    if (r.manmade) acc.man += 1; else acc.nat += 1;
-    return acc;
-  }, {man:0, nat:0});
+  // Compute man-made / natural counts (top-down – after position & common filters, before size)
+  const manCounts = (() => {
+    let base = results
+      // Apply common/uncommon filter (row above)
+      .filter(r => {
+        if (commonFilter === 'common') return (r as any).common === true;
+        if (commonFilter === 'uncommon') return (r as any).common === false;
+        return true;
+      })
+      // Apply letter-position filters (very top)
+      .filter(r => {
+        for (const [pos, letter] of Object.entries(positionFilters)) {
+          const p = parseInt(pos);
+          if (r.word.length >= p && r.word[p - 1].toUpperCase() !== letter) return false;
+        }
+        return true;
+      });
 
-  // Size counts (words mode only) before size filter is applied
+    // Count manmade vs natural
+    let man = 0;
+    let nat = 0;
+    for (const r of base) {
+      if (r.manmade) man++; else nat++;
+    }
+    return { man, nat };
+  })();
+
+  // Size counts (words mode only) before size filter is applied – now based on positionFiltered
   const sizeCounts = (() => {
     if (mode !== 'words') return { small: 0, big: 0 };
     // Build base list with all active filters EXCEPT size filter
-    const base = results.filter(r => {
+    const base = positionFiltered.filter(r => {
       let ok = true;
       // apply same filters as filteredByFrequency but skip size filter logic
       if (commonFilter === 'common') ok = ok && (r as any).common === true;
@@ -275,15 +245,9 @@ export default function App() {
 
       return ok;
     }).filter(r => {
-      // region filter (places not relevant here), but keep consistent with words mode
-      return true;
-    }).filter(r => {
       // Macro filter (manmade/natural)
       if (macroFilter === 'manmade') return r.manmade;
       if (macroFilter === 'natural') return !r.manmade;
-      return true;
-    }).filter(r => {
-      // Region filter not applied for words mode
       return true;
     });
 
@@ -291,8 +255,11 @@ export default function App() {
     let big = 0;
     for (const r of base) {
       const holdable = (r as any).holdable;
-      if (holdable !== false) small += 1;
-      if (holdable !== true) big += 1;
+      if (holdable === true) {
+        small += 1;
+      } else {
+        big += 1; // undefined or explicitly non-small
+      }
     }
     return { small, big };
   })();
@@ -301,11 +268,22 @@ export default function App() {
   const filteredByMacro = filteredByRegion.filter(r => {
     if (mode==='words') {
       // Exclude adjectives, verbs, proper nouns and untouchable abstractions
-      if (r.lex && (r.lex.startsWith('adj.') || r.lex.startsWith('verb.') || r.lex.startsWith('noun.person'))) {
-        return false;
-      }
-      if ((r as any).holdable === false) {
-        return false; // cannot touch/hold
+      if (r.lex) {
+        const intangiblePrefixes = [
+          'adj.',
+          'verb.',
+          'noun.person',
+          'noun.attribute',
+          'noun.state',
+          'noun.event',
+          'noun.act',
+          'noun.feeling',
+          'noun.location',
+          'noun.time'
+        ];
+        if (intangiblePrefixes.some(pref => (r.lex ?? '').startsWith(pref))) {
+          return false;
+        }
       }
     }
     if (macroFilter === 'all') return true;
@@ -315,16 +293,40 @@ export default function App() {
     return true;
   });
 
-  // Apply position-based letter filters early so all subsequent counts are affected
-  const filteredByPosition = filteredByMacro.filter(r => {
-    for (const [pos, letter] of Object.entries(positionFilters)) {
-      const position = parseInt(pos);
-      if (r.word.length >= position && r.word[position - 1].toUpperCase() !== letter) {
-        return false;
-      }
-    }
-    return true;
-  });
+  // Since position filtering is already baked in, we can reuse filteredByMacro directly
+  const filteredByPosition = filteredByMacro;
+
+  // Compute common/uncommon counts after letter-position, region and macro filters but before the common filter itself
+  const commonCounts = (() => {
+    // Build a base list that applies every active filter EXCEPT the common/uncommon filter
+    const base = results
+      // Size filter comes AFTER macro, so ignore it here
+      // Nickname / MS filters sit above common in Names mode, keep them
+      .filter(r => {
+        let ok = true;
+        if (nicknameFilter === 'nickname') ok = ok && (r as any).has_nickname === true;
+        if (nicknameFilter === 'multiple') ok = ok && ((r as any).nick_count || 0) >= 2;
+        if (nicknameFilter === 'none') ok = ok && (r as any).has_nickname === false;
+        if (msFilter === 'yes') ok = ok && ['m','t','s','f','w'].includes(r.word[0].toLowerCase());
+        if (msFilter === 'no') ok = ok && !['m','t','s','f','w'].includes(r.word[0].toLowerCase());
+        return ok;
+      })
+      // Apply letter-position filters (these are at the very top of the UI stack)
+      .filter(r => {
+        for (const [pos, letter] of Object.entries(positionFilters)) {
+          const p = parseInt(pos);
+          if (r.word.length >= p && r.word[p - 1].toUpperCase() !== letter) return false;
+        }
+        return true;
+      });
+
+    const common = base.filter(r => (r as any).common === true).length;
+    const uncommon = base.length - common;
+    return { common, uncommon };
+  })();
+
+  // Total count shown in the Frequency row's "All" button
+  const freqRowTotal = commonCounts.common + commonCounts.uncommon;
 
   const displayed = filteredByPosition.filter(r => {
     if (lexFilter !== 'all') {
@@ -341,8 +343,6 @@ export default function App() {
     }
     return acc;
   }, {} as Record<string, number>);
-
-
 
   // Reset position filters whenever new results arrive (new query)
   useEffect(() => {
@@ -502,12 +502,12 @@ export default function App() {
 
         {/* Combined Vowels & Random Input */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-300">V1&V2+#L</label>
+          <label className="block text-sm font-medium text-gray-300">V1&V2</label>
           <input 
             type="text" 
             value={vowelsAndRandom} 
             onChange={(e) => setVowelsAndRandom(e.target.value.toUpperCase())}
-            placeholder="e.g. 123R"
+            placeholder="e.g. 12"
             className="w-full border border-gray-600 bg-transparent text-gray-400 rounded-lg p-3 text-lg placeholder-gray-500"
           />
         </div>
@@ -522,108 +522,6 @@ export default function App() {
             placeholder="e.g. LRS"
             className="w-full border border-gray-600 bg-transparent text-gray-400 rounded-lg p-3 text-lg placeholder-gray-500"
           />
-        </div>
-
-        {/* V1, V2, LL Categories – same row with dividers */}
-        <div className="flex divide-x divide-gray-600">
-          {/* V1 */}
-          <div className="flex flex-col items-center space-y-1 sm:space-y-2 px-2 flex-1">
-            <span className="text-sm font-medium text-gray-300">V1</span>
-            <div className="flex gap-2 justify-center">
-              {categories.map((cat) => {
-                const IconComponent = cat.icon;
-                return (
-                  <Button
-                    key={cat.id}
-                    variant={v1Category === cat.id ? 'default' : 'outline'}
-                    size="sm"
-                    className={`min-w-[36px] h-10 sm:min-w-[44px] sm:h-11 ${
-                      v1Category === cat.id
-                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600'
-                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-                    }`}
-                    onClick={() => setV1Category(v1Category === cat.id ? null : cat.id)}
-                  >
-                    <IconComponent className="w-5 h-5" />
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* V2 */}
-          <div className="flex flex-col items-center space-y-1 sm:space-y-2 px-2 flex-1">
-            <span className="text-sm font-medium text-gray-300">V2</span>
-            <div className="flex gap-2 justify-center">
-              {categories.map((cat) => {
-                const IconComponent = cat.icon;
-                return (
-                  <Button
-                    key={cat.id}
-                    variant={v2Category === cat.id ? 'default' : 'outline'}
-                    size="sm"
-                    className={`min-w-[36px] h-10 sm:min-w-[44px] sm:h-11 ${
-                      v2Category === cat.id
-                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600'
-                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-                    }`}
-                    onClick={() => setV2Category(v2Category === cat.id ? null : cat.id)}
-                  >
-                    <IconComponent className="w-5 h-5" />
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* LL */}
-          <div className="flex flex-col items-center space-y-1 sm:space-y-2 px-2 flex-1">
-            <span className="text-sm font-medium text-gray-300">LL</span>
-            <div className="flex gap-2 justify-center">
-              {categories.map((cat) => {
-                const IconComponent = cat.icon;
-                return (
-                  <Button
-                    key={cat.id}
-                    variant={lastCategory === cat.id ? 'default' : 'outline'}
-                    size="sm"
-                    className={`min-w-[36px] h-10 sm:min-w-[44px] sm:h-11 ${
-                      lastCategory === cat.id
-                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600'
-                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-                    }`}
-                    onClick={() => setLastCategory(lastCategory === cat.id ? null : cat.id)}
-                  >
-                    <IconComponent className="w-5 h-5" />
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* More Vowels + MTSF Filter Row */}
-        <div className="space-y-2">
-          <div className="flex gap-2 items-center flex-wrap">
-            <Button
-              variant={moreVowels === true ? "default" : "outline"}
-              size="sm"
-              className={`min-w-[36px] h-10 sm:min-w-[44px] sm:h-11 ${
-                moreVowels === true 
-                  ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                  : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-              }`}
-              onClick={() => setMoreVowels(moreVowels === true ? undefined : true)}
-            >
-              V=2+
-            </Button>
-            {/* MTSF buttons inline */}
-            <Button variant={msFilter === 'yes' ? 'default' : 'outline'} size="sm" className={`h-11 ${msFilter === 'yes' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`} onClick={() => setMsFilter(msFilter === 'yes' ? 'all' : 'yes')}>✓ M/T/W/F/S</Button>
-            <Button variant={msFilter === 'no' ? 'default' : 'outline'} size="sm" className={`h-11 ${msFilter === 'no' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`} onClick={() => setMsFilter(msFilter === 'no' ? 'all' : 'no')}>✕ M/T/W/F/S</Button>
-            {mode === 'words' && (
-              <></>
-            )}
-          </div>
         </div>
 
         {/* Search Button */}
@@ -695,7 +593,7 @@ export default function App() {
                 }`}
                 onClick={() => setCommonFilter('all')}
               >
-                All ({results.length})
+                All ({mode === 'words' ? freqRowTotal : filteredByPosition.length})
               </Button>
               <Button
                 variant={commonFilter === 'common' ? "default" : "outline"}
@@ -846,8 +744,6 @@ export default function App() {
                 ))}
             </div>
             )}
-
-
 
             {/* Nickname Filter Row (Names mode) */}
             {mode === 'names' && (
