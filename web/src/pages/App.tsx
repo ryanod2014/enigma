@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Search, Minus, Circle, CircleSlash, Book, MapPin, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -41,6 +41,8 @@ export default function App() {
   const [nicknameFilter, setNicknameFilter] = useState<'all'|'nickname'|'multiple'|'none'>('all');
   const [msFilter, setMsFilter] = useState<'all'|'yes'|'no'>('all');
   const [sizeFilter, setSizeFilter] = useState<'all' | 'small' | 'big'>('all');
+  const [letterEfficiency, setLetterEfficiency] = useState<number[]>([]);
+  const [positionFilters, setPositionFilters] = useState<Record<number, string>>({});
 
   const REGION_LABELS: Record<string,string> = {
     'EU': 'Europe',
@@ -137,6 +139,7 @@ export default function App() {
       console.log('Response data:', data);
       setResults(data.results);
       setLexCounts(data.by_lexname);
+      setLetterEfficiency(data.letter_efficiency || []);
       setLexFilter('all');
       setSearched(true);
     } catch (error) {
@@ -164,8 +167,8 @@ export default function App() {
       if (msFilter === 'yes') ok = ok && ['m','t','s','f','w'].includes(r.word[0].toLowerCase());
       if (msFilter === 'no') ok = ok && !['m','t','s','f','w'].includes(r.word[0].toLowerCase());
 
-      if (sizeFilter === 'small') ok = ok && (r as any).holdable === true;
-      if (sizeFilter === 'big') ok = ok && (r as any).holdable === false;
+      if (sizeFilter === 'small') ok = ok && ((r as any).holdable !== false);
+      if (sizeFilter === 'big') ok = ok && ((r as any).holdable !== true);
 
       // Region filter for places
       if(mode==='places' && regionFilter){
@@ -177,6 +180,15 @@ export default function App() {
       if(mode==='words'){
         if(macroFilter==='manmade') ok = ok && r.manmade;
         if(macroFilter==='natural') ok = ok && !r.manmade;
+      }
+
+      // Position-based letter filters
+      for (const [pos, letter] of Object.entries(positionFilters)) {
+        const position = parseInt(pos);
+        if (r.word.length >= position && r.word[position - 1].toUpperCase() !== letter) {
+          ok = false;
+          break;
+        }
       }
 
       // Lex, FL, LL filters
@@ -221,8 +233,8 @@ export default function App() {
     if (msFilter === 'no') ok = ok && !['m', 't', 's', 'f', 'w'].includes(r.word[0].toLowerCase());
 
     // Size filter (client-side)
-    if (sizeFilter === 'small') ok = ok && (r as any).holdable === true;
-    if (sizeFilter === 'big') ok = ok && (r as any).holdable === false;
+    if (sizeFilter === 'small') ok = ok && ((r as any).holdable !== false);
+    if (sizeFilter === 'big') ok = ok && ((r as any).holdable !== true);
 
     return ok;
   });
@@ -262,7 +274,18 @@ export default function App() {
     return true;
   });
 
-  const displayed = filteredByMacro.filter(r => {
+  // Apply position-based letter filters early so all subsequent counts are affected
+  const filteredByPosition = filteredByMacro.filter(r => {
+    for (const [pos, letter] of Object.entries(positionFilters)) {
+      const position = parseInt(pos);
+      if (r.word.length >= position && r.word[position - 1].toUpperCase() !== letter) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const displayed = filteredByPosition.filter(r => {
     if (lexFilter !== 'all') {
       if (!r.lex || cleanLexName(r.lex) !== lexFilter) return false;
     }
@@ -276,8 +299,8 @@ export default function App() {
     return true;
   });
 
-  // Update lexCounts based on frequency-filtered results with cleaned names
-  const filteredLexCounts = filteredByMacro.reduce((acc, result) => {
+  // Update lexCounts based on position-filtered results with cleaned names
+  const filteredLexCounts = filteredByPosition.reduce((acc, result) => {
     if (result.lex) {
       const cleanedName = cleanLexName(result.lex);
       acc[cleanedName] = (acc[cleanedName] || 0) + 1;
@@ -285,15 +308,15 @@ export default function App() {
     return acc;
   }, {} as Record<string, number>);
 
-  // Compute counts for first-letter buttons (after all other filters except FL itself)
-  const firstLetterCounts = filteredByMacro.reduce((acc, r) => {
+  // Compute counts for first-letter buttons (after position filters but before FL filter)
+  const firstLetterCounts = filteredByPosition.reduce((acc, r) => {
     const fl = r.word[0].toUpperCase();
     acc[fl] = (acc[fl] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
   // Build list after all active filters *except* last-letter so counts stay in sync
-  const listBeforeLastFilter = filteredByMacro.filter(r => {
+  const listBeforeLastFilter = filteredByPosition.filter(r => {
     if (lexFilter !== 'all') {
       if (!r.lex || cleanLexName(r.lex) !== lexFilter) return false;
     }
@@ -313,6 +336,7 @@ export default function App() {
   useEffect(() => {
     setFirstLetterFilter('all');
     setLastLetterFilter('all');
+    setPositionFilters({});
   }, [results]);
 
   // Clear previous results when switching modes to avoid showing stale filters
@@ -321,6 +345,56 @@ export default function App() {
     setLexCounts({});
     setSearched(false);
   }, [mode]);
+
+  // Calculate letter efficiency for currently displayed results
+  const currentLetterEfficiency = useMemo(() => {
+    // Use filteredByPosition so efficiency updates based on position filters already applied
+    const sourceResults = filteredByPosition.length > 0 ? filteredByPosition : (filteredByMacro.length > 0 ? filteredByMacro : results);
+    if (sourceResults.length <= 1) return [];
+    
+    const letterPositions: Record<number, { uniqueLetters: number; distribution: Record<string, number> }> = {};
+    
+    for (let i = 1; i <= 10; i++) {
+      const letterCounts: Record<string, number> = {};
+      let validWords = 0;
+      
+      for (const r of sourceResults) {
+        if (r.word.length >= i) {
+          const letter = r.word[i-1].toUpperCase();
+          letterCounts[letter] = (letterCounts[letter] || 0) + 1;
+          validWords++;
+        }
+      }
+      
+      if (validWords > 0) {
+        const uniqueLetters = Object.keys(letterCounts).length;
+        letterPositions[i] = { uniqueLetters, distribution: letterCounts };
+      }
+    }
+    
+    // Get positions with active filters
+    const activeFilterPositions = Object.keys(positionFilters).map(Number);
+    
+    // Get top efficient positions (excluding ones with active filters to avoid duplicates)
+    const topEfficient = Object.entries(letterPositions)
+      .filter(([pos]) => !activeFilterPositions.includes(parseInt(pos)))
+      .sort(([, a], [, b]) => b.uniqueLetters - a.uniqueLetters)
+      .slice(0, 3 - activeFilterPositions.length)
+      .map(([pos, data]) => [parseInt(pos), data] as [number, { uniqueLetters: number; distribution: Record<string, number> }]);
+    
+    // Combine active filter positions with top efficient ones
+    const activePositions = activeFilterPositions
+      .map(pos => {
+        // If position has data, use it; otherwise create synthetic data for the active filter
+        const data = letterPositions[pos] || {
+          uniqueLetters: 1,
+          distribution: { [positionFilters[pos]]: 0 }
+        };
+        return [pos, data] as [number, { uniqueLetters: number; distribution: Record<string, number> }];
+      });
+    
+    return [...activePositions, ...topEfficient];
+  }, [filteredByPosition, filteredByMacro, results, positionFilters]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -582,7 +656,7 @@ export default function App() {
         {!loading && searched && (
           <div className="space-y-4">
             <div className="text-sm text-gray-400">
-              Found {filteredByMacro.length} results, showing {displayed.length}
+              Found {filteredByPosition.length} results, showing {displayed.length}
             </div>
             
             {/* City / Country filter row - now above frequency row */}
@@ -594,7 +668,7 @@ export default function App() {
                   className={`${lexFilter === 'all' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
                   onClick={() => setLexFilter('all')}
                 >
-                  All ({filteredByMacro.length})
+                  All ({filteredByPosition.length})
                 </Button>
                 {Object.entries(filteredLexCounts)
                   .sort(([, aCount], [, bCount]) => bCount - aCount)
@@ -724,7 +798,7 @@ export default function App() {
                 }`}
                 onClick={() => setLexFilter('all')}
               >
-                All ({filteredByMacro.length})
+                All ({filteredByPosition.length})
               </Button>
               {Object.entries(filteredLexCounts)
                 .sort(([, aCount], [, bCount]) => bCount - aCount)
@@ -754,7 +828,7 @@ export default function App() {
                 className={`${firstLetterFilter === 'all' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
                 onClick={() => setFirstLetterFilter('all')}
               >
-                First: All ({filteredByMacro.length})
+                First: All ({filteredByPosition.length})
               </Button>
               {Object.entries(firstLetterCounts)
                 .sort(([, cntA], [, cntB]) => cntB - cntA)
@@ -833,6 +907,81 @@ export default function App() {
                 </Button>
               </div>
             )}
+
+            {/* Letter Efficiency Helper */}
+            {searched && (
+                              <div className="space-y-4">
+                  <label className="block text-sm font-medium text-gray-300">Most efficient positions</label>
+                                    {currentLetterEfficiency.length > 0 || Object.keys(positionFilters).length > 0 ? (
+                    (currentLetterEfficiency.length > 0 ? currentLetterEfficiency : 
+                      Object.keys(positionFilters).map(pos => [
+                        parseInt(pos), 
+                        { uniqueLetters: 1, distribution: { [positionFilters[parseInt(pos)]]: 0 } }
+                      ] as [number, { uniqueLetters: number; distribution: Record<string, number> }])
+                    ).map(([pos, data], index) => (
+                      <div key={pos} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-400">#{index + 1}:</span>
+                          <span className="text-sm font-medium text-gray-300">Position {pos}</span>
+                          {positionFilters[pos] && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs bg-transparent border-gray-600 text-gray-400 hover:bg-gray-700"
+                              onClick={() => {
+                                setPositionFilters(prev => {
+                                  const newFilters = { ...prev };
+                                  delete newFilters[pos];
+                                  return newFilters;
+                                });
+                              }}
+                            >
+                              Clear
+                            </Button>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(data.distribution)
+                            .sort(([, aCount], [, bCount]) => bCount - aCount)
+                            .map(([letter, count]) => (
+                              <Button
+                                key={letter}
+                                size="sm"
+                                variant={positionFilters[pos] === letter ? 'default' : 'outline'}
+                                className={`h-8 px-2 text-xs ${
+                                  positionFilters[pos] === letter
+                                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600'
+                                    : 'bg-transparent text-gray-400 border-gray-600 hover:bg-gray-700'
+                                }`}
+                                onClick={() => {
+                                  setPositionFilters(prev => {
+                                    const newFilters = { ...prev };
+                                    if (newFilters[pos] === letter) {
+                                      delete newFilters[pos];
+                                    } else {
+                                      newFilters[pos] = letter;
+                                    }
+                                    return newFilters;
+                                  });
+                                }}
+                              >
+                                {letter} ({count})
+                              </Button>
+                            ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : Object.keys(positionFilters).length > 0 ? (
+                    <div className="text-sm text-gray-400">
+                      Active position filters - clear filters or search again to see suggestions
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-400">
+                      Search for words to see position suggestions
+                    </div>
+                  )}
+                </div>
+              )}
 
             {displayed.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

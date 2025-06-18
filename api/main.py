@@ -11,12 +11,9 @@ from fastapi.staticfiles import StaticFiles
 from wordnet_vowel_index import (
     WordIndex,
     CATEGORY_MAP,
-    zipf_frequency,
-    PHYSICAL_LEXNAMES,
-    is_physical,
     HOLDABLE_SET,
+    classify_subject,
 )  # type: ignore
-from nltk.corpus import wordnet as wn
 from place_index import PlaceIndex  # new index for countries/cities
 from first_name_index import FirstNameIndex
 
@@ -62,10 +59,10 @@ class QueryIn(BaseModel):
 
 class WordOut(BaseModel):
     word: str
-    freq: float
-    lex: Optional[str]
-    manmade: bool
-    common: bool  # True if frequent (Zipf ≥4.0 or count≥1)
+    freq: float = 1.0  # constant placeholder (kept for UI compatibility)
+    lex: Optional[str] = None  # our 7-bucket category
+    manmade: bool = False
+    common: bool = True  # not used but front-end expects
     holdable: Optional[bool] = None
 
 
@@ -144,8 +141,8 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
     if q.category not in CATEGORY_MAP:
         raise HTTPException(status_code=400, detail="category must be 1, 2, or 3")
 
-    # `query_category` now returns a **list[str]** (words), not dicts
-    words_raw = index.query_category(
+    # `query_category` now returns a **list[Dict]** (word metadata), not just strings
+    word_items = index.query_category(
         length=q.length,
         category=q.category,
         first_vowel_pos=q.v1,
@@ -156,83 +153,119 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
     )
 
     # Start with the raw word list
-    words = list(words_raw)
+    words = [item["word"] for item in word_items]
 
     # Optional filter by last letter category
     if q.last_category in CATEGORY_MAP:
         allowed_last = CATEGORY_MAP[q.last_category]
-        words = [w for w in words if w[-1].upper() in allowed_last]
+        filtered_items = [item for item in word_items if item["word"][-1].upper() in allowed_last]
+        words = [item["word"] for item in filtered_items]
+        word_items = filtered_items
 
     # First-letter MTSF filter
     if q.ms is True:
-        words = [w for w in words if w[0] in {'m','t','s','f','w'}]
+        filtered_items = [item for item in word_items if item["word"][0] in {'m','t','s','f','w'}]
+        words = [item["word"] for item in filtered_items]
+        word_items = filtered_items
     if q.ms is False:
-        words = [w for w in words if w[0] not in {'m','t','s','f','w'}]
+        filtered_items = [item for item in word_items if item["word"][0] not in {'m','t','s','f','w'}]
+        words = [item["word"] for item in filtered_items]
+        word_items = filtered_items
 
     # Rhyme filter
     if q.rhyme is True:
-        words = [w for w in words if w in RHYME_SET]
+        filtered_items = [item for item in word_items if item["word"] in RHYME_SET]
+        words = [item["word"] for item in filtered_items]
+        word_items = filtered_items
     if q.rhyme is False:
-        words = [w for w in words if w not in RHYME_SET]
+        filtered_items = [item for item in word_items if item["word"] not in RHYME_SET]
+        words = [item["word"] for item in filtered_items]
+        word_items = filtered_items
 
     # Optional filter: word must contain all specified letters
     if q.must_letters:
         needed = set(q.must_letters.upper())
-        words = [w for w in words if needed.issubset(set(w.upper()))]
+        filtered_items = [item for item in word_items if needed.issubset(set(item["word"].upper()))]
+        words = [item["word"] for item in filtered_items]
+        word_items = filtered_items
 
     # V1 / V2 category filters
     if q.v1_cat in CATEGORY_MAP:
         allowed_set = CATEGORY_MAP[q.v1_cat]
-        words = [w for w in words if _char_at(w, q.v1) in allowed_set]
+        filtered_items = [item for item in word_items if _char_at(item["word"], q.v1) in allowed_set]
+        words = [item["word"] for item in filtered_items]
+        word_items = filtered_items
     if q.v2 > 0 and q.v2_cat in CATEGORY_MAP:
         allowed_set = CATEGORY_MAP[q.v2_cat]
-        words = [w for w in words if _char_at(w, q.v2) in allowed_set]
+        filtered_items = [item for item in word_items if _char_at(item["word"], q.v2) in allowed_set]
+        words = [item["word"] for item in filtered_items]
+        word_items = filtered_items
 
     resp: List[WordOut] = []
 
-    for w in words:
-        if callable(zipf_frequency):
-            freq_metric = float(zipf_frequency(w, "en"))
-            is_common = freq_metric >= 4.0
-        else:
-            counts = [lem.count() for syn in wn.synsets(w) for lem in syn.lemmas() if lem.name() == w]
-            freq_metric = float(max(counts, default=0))
-            is_common = freq_metric >= 1
-
-        if q.common is True and not is_common:
-            continue
-        if q.common is False and is_common:
-            continue
-
-        lex = None
-        manmade_flag = False
-        for syn in wn.synsets(w, pos=wn.NOUN):
-            if is_physical(syn):
-                lex = syn.lexname()
-                manmade_flag = any(p in {wn.synset('artifact.n.01'), wn.synset('vehicle.n.01')} for p in syn.closure(lambda x: x.hypernyms()))
-                break
-        if lex is None:
-            continue
+    for item in word_items:
+        w = item["word"]
 
         resp.append(
             WordOut(
                 word=w,
-                freq=freq_metric,
-                lex=lex,
-                manmade=manmade_flag,
-                common=is_common,
-                holdable=w in HOLDABLE_SET,
+                lex=item.get("cat", "unknown"),
+                manmade=item.get("manmade", False),
+                common=item.get("common", False),
+                holdable=w in HOLDABLE_SET if w in HOLDABLE_SET else None,
             )
         )
 
-    resp.sort(key=lambda r: (-r.freq, r.word))
+    # Optional common filter
+    if q.common is True:
+        resp = [r for r in resp if r.common]
+    elif q.common is False:
+        resp = [r for r in resp if not r.common]
 
-    by_lexname: Dict[str, int] = {}
+    resp.sort(key=lambda r: r.word)
+
+    # Build counts by bucket (lex)
+    bucket_counts: Dict[str, int] = {}
     for r in resp:
-        key = r.lex or "unknown"
-        by_lexname[key] = by_lexname.get(key, 0) + 1
+        if r.lex:
+            bucket_counts[r.lex] = bucket_counts.get(r.lex, 0) + 1
 
-    return {"results": [r.dict() for r in resp], "by_lexname": by_lexname}
+    # Calculate letter position entropy for filtering efficiency
+    letter_positions = {}
+    for i in range(1, 11):  # positions 1-10
+        letter_counts = {}
+        valid_words = 0
+        for r in resp:
+            if len(r.word) >= i:
+                letter = r.word[i-1].upper()
+                letter_counts[letter] = letter_counts.get(letter, 0) + 1
+                valid_words += 1
+        
+        if valid_words > 0:
+            # Calculate entropy - lower entropy = more informative position
+            import math
+            entropy = 0
+            for count in letter_counts.values():
+                p = count / valid_words
+                if p > 0:
+                    entropy -= p * math.log2(p)
+            
+            letter_positions[i] = {
+                "entropy": round(entropy, 2),
+                "distribution": letter_counts,
+                "total_words": valid_words
+            }
+    
+    # Sort positions by entropy (most informative first)
+    sorted_positions = sorted(letter_positions.items(), key=lambda x: x[1]["entropy"])
+    efficiency_ranking = [pos for pos, data in sorted_positions]
+
+    return {
+        "results": [r.dict() for r in resp], 
+        "by_lexname": bucket_counts,
+        "letter_efficiency": efficiency_ranking,
+        "letter_analysis": letter_positions
+    }
 
 
 # ----------------------------------------------------------------------- #

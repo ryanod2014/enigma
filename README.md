@@ -29,8 +29,7 @@ A sophisticated word search tool designed for the 20 Questions game, built with 
 
 ### Backend
 - **FastAPI**: High-performance Python web framework
-- **NLTK WordNet**: Linguistic database for word analysis
-- **WordFreq**: Word frequency analysis using Zipf scores
+- **Local JSONL dataset**: curated 20-Questions knowledge base (`data/combined_twentyquestions.jsonl`)
 - **Uvicorn**: ASGI server for production deployment
 
 ### Frontend
@@ -234,22 +233,9 @@ Search for first names.
 
 ## Word Database
 
-The system uses a curated database of ~1,500 physical objects sourced from WordNet. Words are filtered to include only:
+As of 2025-06 the noun list no longer relies on WordNet. Instead we ship **9,800+ subjects** extracted from the classic "20 Q" game datasets. These are stored in `data/combined_twentyquestions.jsonl` and loaded at startup (<100 ms) with zero external downloads.
 
-- **Physical entities**: Objects you can touch/see
-- **Nouns with primary noun usage**: Excludes words primarily used as adjectives
-- **Common objects**: Minimum usage frequency requirements
-- **Allowed categories**: Artifacts, animals, plants, body parts, substances, vehicles
-
-- **Places index**: …
-- **First-name index**: built from U.S. SSA baby-names corpus (100k names). Optional nickname filter via built-in `nicknames.tsv`. Generate once:
-  ```bash
-  # automatic download
-  python scripts/build_first_names.py
-  # or using a locally downloaded names.zip
-  python scripts/build_first_names.py --local path/to/names.zip
-  ```
-  Produces `data/first_names.tsv` used at runtime.
+Legacy WordNet code is still present for the CLI fallback but is **not required in production**.
 
 ## Development
 

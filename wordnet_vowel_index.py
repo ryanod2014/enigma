@@ -28,17 +28,30 @@ from __future__ import annotations
 
 import re
 import sys
+import json
 from functools import lru_cache as _lru
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import nltk
-from nltk.corpus import wordnet as wn
-from nltk.stem import WordNetLemmatizer
-# Optional word frequency (Zipf); import lazily if available
+# --------------------------------------------------------------------------- #
+# Legacy WordNet imports are optional now. We only fall back to them if our
+# local JSONL dataset is missing. This keeps runtime lightweight and removes
+# the hard dependency on NLTK when running in production.
+# --------------------------------------------------------------------------- #
+
 try:
-    from wordfreq import zipf_frequency  # type: ignore
-except ImportError:  # network issues or pkg not installed
+    import nltk  # type: ignore
+    from nltk.corpus import wordnet as wn  # type: ignore
+    from nltk.stem import WordNetLemmatizer  # type: ignore
+
+    try:
+        from wordfreq import zipf_frequency  # type: ignore
+    except ImportError:
+        zipf_frequency = None  # type: ignore
+except ImportError:  # NLTK not installed – totally fine for JSONL mode
+    nltk = None  # type: ignore
+    wn = None  # type: ignore
+    WordNetLemmatizer = None  # type: ignore
     zipf_frequency = None  # type: ignore
 
 import csv
@@ -52,8 +65,8 @@ except LookupError:  # first run
 
 VOWELS = "AEIOUY"
 
-# WordNet lemmatizer for detecting pluralia tantum
-LEMMATIZER = WordNetLemmatizer()
+# WordNet lemmatizer (only if WordNet available)
+LEMMATIZER = WordNetLemmatizer() if WordNetLemmatizer else None
 
 # Physical object categories in WordNet
 PHYSICAL_LEXNAMES = {
@@ -92,7 +105,7 @@ COMMON_ZIPF_THRESHOLD = 3.5
 # Fallback: WordNet lemma.count() occurrences
 COMMON_COUNT_THRESHOLD = 0  # include even very rare words; we will filter in API
 
-_PHYSICAL_ROOT = wn.synset('physical_entity.n.01')
+_PHYSICAL_ROOT = wn.synset('physical_entity.n.01') if wn else None
 
 @_lru(maxsize=2048)
 def is_physical(syn) -> bool:
@@ -151,6 +164,117 @@ if HOLDABLE_FILE.is_file():
 # rhyme set loaded once
 RHYME_FILE = Path(__file__).resolve().parent / "data" / "rhyme_flags.tsv"
 
+# --------------------------------------------------------------------------- #
+#   Simplified subject classification for 20-Questions nouns
+# --------------------------------------------------------------------------- #
+
+# Minimal keyword sets – enough to bucket >90 % of the 9k subjects.  Feel free to
+# extend in future; mis-hits will fall back to "unknown" which still shows up.
+
+ANIMALS = {
+    'aardvark','alligator','ant','anteater','antelope','ape','armadillo','badger',
+    'bat','bear','beaver','bee','beetle','bison','boar','buffalo','bull','butterfly',
+    'camel','canary','caribou','cat','caterpillar','cheetah','chicken','chimpanzee',
+    'chipmunk','cobra','cougar','cow','coyote','crab','crow','deer','dinosaur',
+    'dog','dolphin','donkey','dove','dragonfly','duck','eagle','eel','elephant',
+    'elk','falcon','ferret','finch','firefly','fish','flamingo','fly','fox','frog',
+    'gazelle','giraffe','goat','goose','gorilla','grasshopper','grouse','hamster',
+    'hawk','hedgehog','hippo','horse','hummingbird','iguana','jackal','jaguar',
+    'jay','jellyfish','kangaroo','koala','ladybug','lamb','lemur','leopard',
+    'lion','lizard','lobster','lynx','mole','monkey','moose','mosquito','moth',
+    'mouse','mule','newt','octopus','opossum','orangutan','osprey','ostrich','otter',
+    'owl','ox','panda','panther','parrot','peacock','pelican','penguin','pig','pigeon',
+    'porcupine','puma','quail','rabbit','raccoon','rat','raven','reindeer','rhino',
+    'robin','rooster','salamander','salmon','seal','shark','sheep','skunk','sloth',
+    'snail','snake','sparrow','spider','squid','squirrel','starfish','stork','swan',
+    'tiger','toad','trout','turkey','turtle','vulture','walrus','wasp','weasel',
+    'whale','wolf','wombat','woodpecker','worm','yak','zebra'
+}
+
+FOOD_PLANT = {
+    'apple','banana','bread','broccoli','burger','butter','cake','candy','carrot',
+    'celery','cheese','cherry','chocolate','coconut','coffee','cookie','corn',
+    'cucumber','donut','egg','fish','garlic','grape','honey','ice','jam','juice',
+    'kale','lemon','lettuce','lime','lobster','mango','meat','milk','mushroom',
+    'noodle','nut','oat','oil','onion','orange','pasta','peach','pear','pepper',
+    'pickle','pie','pizza','pork','potato','pumpkin','rice','salad','salt',
+    'sandwich','sausage','soup','spinach','steak','sugar','tea','tomato','turkey',
+    'water','watermelon','wine','yogurt','zucchini',
+    # plants / trees
+    'tree','oak','pine','maple','birch','cedar','spruce','willow','cactus','flower',
+    'rose','tulip','daisy','orchid','fern','ivy','bamboo','moss','algae'
+}
+
+CLOTHING = {
+    'hat','cap','helmet','shirt','tshirt','t-shirt','sweater','hoodie','jacket',
+    'coat','vest','pants','trousers','shorts','jeans','leggings','skirt','dress',
+    'miniskirt','bikini','bra','underwear',
+    'socks','sock','shoe','shoes','boot','boots','sandal','glove','gloves','scarf',
+    'belt','tie','watch','ring','necklace','bracelet','earring','earrings','goggles',
+    'glasses','spectacles','umbrella','backpack','bag','purse','wallet'
+}
+
+FURNITURE = {
+    'bed','sofa','couch','chair','armchair','table','desk','dresser','cabinet',
+    'shelf','bookshelf','stool','bench','sofabed','closet','wardrobe','door',
+    'window','lamp','light','fan','mirror','rug','carpet','toilet','sink','shower',
+    'bathtub','fridge','freezer','stove','oven','microwave','dishwasher',
+    'vacuum','washer','dryer'
+}
+
+OBJECT_TOOL = {
+    'hammer','nail','screw','screwdriver','wrench','pliers','scissors','knife',
+    'fork','spoon','spatula','pan','pot','bowl','cup','mug','plate','bottle',
+    'jar','box','bag','bucket','can','rope','string','tape','glue','paper',
+    'pencil','pen','marker','crayon','brush','comb','key','lock','phone','camera',
+    'clock','watch','radio','tablet','laptop','computer','mouse','keyboard','drum',
+    'guitar','violin','trumpet','ball','bat','racket','frisbee','kite','toy',
+    'dice','card','coin','tool','fireworks','metalwork'
+}
+
+VEHICLE_MACHINE = {
+    'car','truck','bus','bike','bicycle','motorcycle','scooter','train','plane',
+    'motorbike','firetruck','spaceship','helicopter','boat','ship','submarine',
+    'tank','rocket','spaceship','robot','computer','engine','motor','machine'
+}
+
+NATURAL_MATERIAL = {
+    'rock','stone','pebble','granite','marble','sand','dirt','soil','mud','clay',
+    'dust','ash','coal','charcoal','diamond','gold','silver','copper','iron','steel',
+    'bronze','brass','aluminum','lead','mercury','water','ice','steam','snow',
+    'rain','cloud','fog','wind','air','fire','lava','magma','smoke','gas','oil',
+    'salt','sugar','oxygen','hydrogen','helium','planet','star','moon','comet',
+    'asteroid','mountain','hill','valley','river','lake','ocean','sea','beach'
+}
+
+PERSON_SUFFIXES = ('er','or','ist','ian')  # crude heuristic
+
+
+def classify_subject(word: str) -> tuple[str, bool]:
+    """Return (bucket, manmade).  If bucket == 'person' caller may choose to skip."""
+    w = word.lower()
+
+    if w in ANIMALS:
+        return 'animal', False
+    if w in FOOD_PLANT:
+        return 'food-plant', False
+    if w in CLOTHING:
+        return 'clothing', True
+    if w in FURNITURE:
+        return 'furniture', True
+    if w in VEHICLE_MACHINE:
+        return 'vehicle-machine', True
+    if w in OBJECT_TOOL:
+        return 'object-tool', True
+    if w in NATURAL_MATERIAL:
+        return 'natural-material', False
+
+    # crude person detection
+    if len(w) > 4 and w.endswith(PERSON_SUFFIXES):
+        return 'person', False
+
+    return 'unknown', False
+
 class WordIndex:
     """Build once, then lightning‑fast `query()` calls."""
 
@@ -159,6 +283,24 @@ class WordIndex:
         self._build()
 
     def _build(self) -> None:
+        """Build the in-memory index.
+
+        Preference order:
+        1. If `data/combined_twentyquestions.jsonl` is present → use it (fast).
+        2. Fallback to the original WordNet crawl (slow, requires NLTK).
+        """
+
+        jsonl_path = Path(__file__).resolve().parent / "data" / "combined_twentyquestions.jsonl"
+        if jsonl_path.is_file():
+            self._build_from_jsonl(jsonl_path)
+            return  # ✅ done – no need for WordNet
+
+        if not wn:
+            raise RuntimeError("NLTK/WordNet not available and JSONL dataset missing – cannot build index.")
+
+        # ------------------------------------------------------------------ #
+        # Legacy WordNet path (kept for CLI compatibility only)
+        # ------------------------------------------------------------------ #
         print("[index] building WordNet noun index…", file=sys.stderr)
         for syn in wn.all_synsets(pos=wn.NOUN):
             # Skip non-physical concepts
@@ -256,7 +398,7 @@ class WordIndex:
         random_constraint: str | None = None,
         more_vowels: bool | None = None,
         holdable: bool | None = None,
-    ) -> List[str]:
+    ) -> List[Dict[str, any]]:
         """Advanced query using *first-letter category* instead of exact letter.
 
         Args:
@@ -303,11 +445,76 @@ class WordIndex:
 
         if more_vowels is not None:
             if more_vowels:
-                deduped = [w for w in deduped if len(vowel_positions(w)) > 2]
+                deduped = [item for item in deduped if len(vowel_positions(item["word"])) > 2]
             else:
-                deduped = [w for w in deduped if len(vowel_positions(w)) <= 2]
+                deduped = [item for item in deduped if len(vowel_positions(item["word"])) <= 2]
 
-        return [item["word"] for item in deduped]
+        return deduped
+
+    # ------------------------------------------------------------------ #
+    def _build_from_jsonl(self, jsonl_path: Path) -> None:
+        """Populate *self.index* from the local 20-Questions JSONL file."""
+        print(f"[index] building from {jsonl_path.name}…", file=sys.stderr)
+
+        subject_counts: dict[str, int] = {}
+
+        with jsonl_path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue  # skip malformed lines
+
+                subj_raw = str(obj.get("subject", "")).strip().lower()
+
+                # Basic sanity checks ------------------------------------------------
+                if not subj_raw:
+                    continue
+                if " " in subj_raw:  # ignore multi-word for now (keeps length logic)
+                    continue
+                if not re.fullmatch(r"[a-z]+", subj_raw):
+                    continue
+
+                # Count occurrences (frequency in dataset)
+                subject_counts[subj_raw] = subject_counts.get(subj_raw, 0) + 1
+
+        # Now process unique subjects with their counts
+        for subj_raw, count in subject_counts.items():
+            vpos = vowel_positions(subj_raw)
+            if not vpos:
+                continue  # must contain at least one vowel
+
+            first_v, second_v = vpos[0], (vpos[1] if len(vpos) > 1 else 0)
+
+            bucket, man_flag = classify_subject(subj_raw)
+
+            if bucket == 'person':
+                continue  # skip persons/characters entirely
+
+            # Common = appears 3+ times in dataset (somewhat arbitrary threshold)
+            is_common = count >= 3
+
+            key = (len(subj_raw), subj_raw[0], first_v, second_v)
+            self.index.setdefault(key, []).append({
+                "word": subj_raw,
+                "holdable": subj_raw in HOLDABLE_SET,
+                "cat": bucket,
+                "manmade": man_flag,
+                "common": is_common,
+                "freq_count": count,
+            })
+
+        # Deduplicate while preserving order (probably unnecessary but safe)
+        for k, lst in self.index.items():
+            seen_words: set[str] = set()
+            deduped: List[Dict[str, any]] = []
+            for item in lst:
+                if item["word"] not in seen_words:
+                    deduped.append(item)
+                    seen_words.add(item["word"])
+            self.index[k] = deduped
+
+        print(f"[index] done – {len(self.index):,} keys from JSONL", file=sys.stderr)
 
 
 # -------------------------------------------------------------------------- #

@@ -1,0 +1,13 @@
+{
+  "total_entries": 79917,
+  "total_unique_subjects": 9832,
+  "subjects_with_questions": 8805,
+  "subjects_without_questions": 1027,
+  "original_twentyq_entries": 78890,
+  "new_keyword_entries": 1027,
+  "overlapping_subjects": 497,
+  "coverage": {
+    "with_question_data": 89.55,
+    "keywords_only": 10.45
+  }
+}
