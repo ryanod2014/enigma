@@ -36,8 +36,6 @@ export default function App() {
   const [lexCounts, setLexCounts] = useState<Record<string, number>>({});
   const [mode, setMode] = useState<'words' | 'places' | 'names'>('words');
   const [regionFilter, setRegionFilter] = useState<string>(''); // continent code filter
-  const [firstLetterFilter, setFirstLetterFilter] = useState<string>('all');
-  const [lastLetterFilter, setLastLetterFilter] = useState<string>('all');
   const [nicknameFilter, setNicknameFilter] = useState<'all'|'nickname'|'multiple'|'none'>('all');
   const [msFilter, setMsFilter] = useState<'all'|'yes'|'no'>('all');
   const [sizeFilter, setSizeFilter] = useState<'all' | 'small' | 'big'>('all');
@@ -191,16 +189,9 @@ export default function App() {
         }
       }
 
-      // Lex, FL, LL filters
+      // Lex filters
       if (lexFilter !== 'all') {
         if (!r.lex || cleanLexName(r.lex) !== lexFilter) ok = false;
-      }
-      if (firstLetterFilter !== 'all') {
-        if (r.word[0].toUpperCase() !== firstLetterFilter) ok = false;
-      }
-      if (lastLetterFilter !== 'all') {
-        const last = r.word[r.word.length-1].toUpperCase();
-        if(last!== lastLetterFilter) ok = false;
       }
       return ok;
     });
@@ -289,13 +280,6 @@ export default function App() {
     if (lexFilter !== 'all') {
       if (!r.lex || cleanLexName(r.lex) !== lexFilter) return false;
     }
-    if (firstLetterFilter !== 'all') {
-      if (r.word[0].toUpperCase() !== firstLetterFilter) return false;
-    }
-    if (lastLetterFilter !== 'all') {
-      const last = r.word[r.word.length - 1].toUpperCase();
-      if (last !== lastLetterFilter) return false;
-    }
     return true;
   });
 
@@ -308,34 +292,10 @@ export default function App() {
     return acc;
   }, {} as Record<string, number>);
 
-  // Compute counts for first-letter buttons (after position filters but before FL filter)
-  const firstLetterCounts = filteredByPosition.reduce((acc, r) => {
-    const fl = r.word[0].toUpperCase();
-    acc[fl] = (acc[fl] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
 
-  // Build list after all active filters *except* last-letter so counts stay in sync
-  const listBeforeLastFilter = filteredByPosition.filter(r => {
-    if (lexFilter !== 'all') {
-      if (!r.lex || cleanLexName(r.lex) !== lexFilter) return false;
-    }
-    if (firstLetterFilter !== 'all') {
-      if (r.word[0].toUpperCase() !== firstLetterFilter) return false;
-    }
-    return true;
-  });
 
-  const lastLetterCounts = listBeforeLastFilter.reduce((acc, r) => {
-    const last = r.word[r.word.length - 1].toUpperCase();
-    acc[last] = (acc[last] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  // Reset FL and LL filters whenever new results arrive (new query)
+  // Reset position filters whenever new results arrive (new query)
   useEffect(() => {
-    setFirstLetterFilter('all');
-    setLastLetterFilter('all');
     setPositionFilters({});
   }, [results]);
 
@@ -820,55 +780,7 @@ export default function App() {
             </div>
             )}
 
-            {/* First-letter filter buttons */}
-            <div className="flex flex-wrap gap-2 mt-2">
-              <Button
-                variant={firstLetterFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                className={`${firstLetterFilter === 'all' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
-                onClick={() => setFirstLetterFilter('all')}
-              >
-                First: All ({filteredByPosition.length})
-              </Button>
-              {Object.entries(firstLetterCounts)
-                .sort(([, cntA], [, cntB]) => cntB - cntA)
-                .map(([letter, cnt]) => (
-                  <Button
-                    key={letter}
-                    variant={firstLetterFilter === letter ? 'default' : 'outline'}
-                    size="sm"
-                    className={`${firstLetterFilter === letter ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
-                    onClick={() => setFirstLetterFilter(letter)}
-                  >
-                    {letter} ({cnt})
-                  </Button>
-                ))}
-            </div>
 
-            {/* Last-letter filter buttons */}
-            <div className="flex flex-wrap gap-2 mt-2">
-              <Button
-                variant={lastLetterFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                className={`${lastLetterFilter === 'all' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
-                onClick={() => setLastLetterFilter('all')}
-              >
-                Last: All ({displayed.length})
-              </Button>
-              {Object.entries(lastLetterCounts)
-                .sort(([, cntA], [, cntB]) => cntB - cntA)
-                .map(([letter, cnt]) => (
-                  <Button
-                    key={letter}
-                    variant={lastLetterFilter === letter ? 'default' : 'outline'}
-                    size="sm"
-                    className={`${lastLetterFilter === letter ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
-                    onClick={() => setLastLetterFilter(letter)}
-                  >
-                    {letter} ({cnt})
-                  </Button>
-                ))}
-            </div>
 
             {/* Nickname Filter Row (Names mode) */}
             {mode === 'names' && (
