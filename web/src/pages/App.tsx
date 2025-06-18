@@ -256,8 +256,58 @@ export default function App() {
     return acc;
   }, {man:0, nat:0});
 
+  // Size counts (words mode only) before size filter is applied
+  const sizeCounts = (() => {
+    if (mode !== 'words') return { small: 0, big: 0 };
+    // Build base list with all active filters EXCEPT size filter
+    const base = results.filter(r => {
+      let ok = true;
+      // apply same filters as filteredByFrequency but skip size filter logic
+      if (commonFilter === 'common') ok = ok && (r as any).common === true;
+      if (commonFilter === 'uncommon') ok = ok && (r as any).common === false;
+
+      if (nicknameFilter === 'nickname') ok = ok && (r as any).has_nickname === true;
+      if (nicknameFilter === 'multiple') ok = ok && ((r as any).nick_count || 0) >= 2;
+      if (nicknameFilter === 'none') ok = ok && (r as any).has_nickname === false;
+
+      if (msFilter === 'yes') ok = ok && ['m','t','s','f','w'].includes(r.word[0].toLowerCase());
+      if (msFilter === 'no') ok = ok && !['m','t','s','f','w'].includes(r.word[0].toLowerCase());
+
+      return ok;
+    }).filter(r => {
+      // region filter (places not relevant here), but keep consistent with words mode
+      return true;
+    }).filter(r => {
+      // Macro filter (manmade/natural)
+      if (macroFilter === 'manmade') return r.manmade;
+      if (macroFilter === 'natural') return !r.manmade;
+      return true;
+    }).filter(r => {
+      // Region filter not applied for words mode
+      return true;
+    });
+
+    let small = 0;
+    let big = 0;
+    for (const r of base) {
+      const holdable = (r as any).holdable;
+      if (holdable !== false) small += 1;
+      if (holdable !== true) big += 1;
+    }
+    return { small, big };
+  })();
+
   // Apply macro man-made / natural filter
   const filteredByMacro = filteredByRegion.filter(r => {
+    if (mode==='words') {
+      // Exclude adjectives, verbs, proper nouns and untouchable abstractions
+      if (r.lex && (r.lex.startsWith('adj.') || r.lex.startsWith('verb.') || r.lex.startsWith('noun.person'))) {
+        return false;
+      }
+      if ((r as any).holdable === false) {
+        return false; // cannot touch/hold
+      }
+    }
     if (macroFilter === 'all') return true;
     const isMan = r.manmade;
     if (macroFilter === 'manmade') return isMan;
@@ -571,20 +621,7 @@ export default function App() {
             <Button variant={msFilter === 'yes' ? 'default' : 'outline'} size="sm" className={`h-11 ${msFilter === 'yes' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`} onClick={() => setMsFilter(msFilter === 'yes' ? 'all' : 'yes')}>✓ M/T/W/F/S</Button>
             <Button variant={msFilter === 'no' ? 'default' : 'outline'} size="sm" className={`h-11 ${msFilter === 'no' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`} onClick={() => setMsFilter(msFilter === 'no' ? 'all' : 'no')}>✕ M/T/W/F/S</Button>
             {mode === 'words' && (
-              <>
-                <Button
-                  variant={sizeFilter === 'small' ? 'default' : 'outline'}
-                  size="sm"
-                  className={`h-11 ${sizeFilter === 'small' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
-                  onClick={() => handleSizeFilter('small')}
-                >Small</Button>
-                <Button
-                  variant={sizeFilter === 'big' ? 'default' : 'outline'}
-                  size="sm"
-                  className={`h-11 ${sizeFilter === 'big' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
-                  onClick={() => handleSizeFilter('big')}
-                >Big</Button>
-              </>
+              <></>
             )}
           </div>
         </div>
@@ -705,44 +742,74 @@ export default function App() {
             
             {/* Macro Man-made / Natural Filter Buttons - Only show for Words mode */}
             {mode === 'words' && (
-              <div className="flex gap-2">
-                <Button
-                  variant={macroFilter === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  className={`${
-                    macroFilter === 'all' 
-                      ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                      : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-                  }`}
-                  onClick={() => setMacroFilter('all')}
-                >
-                  All Types ({filteredByRegion.length})
-                </Button>
-                <Button
-                  variant={macroFilter === 'manmade' ? 'default' : 'outline'}
-                  size="sm"
-                  className={`${
-                    macroFilter === 'manmade' 
-                      ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                      : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-                  }`}
-                  onClick={() => setMacroFilter('manmade')}
-                >
-                  Man-made ({manCounts.man})
-                </Button>
-                <Button
-                  variant={macroFilter === 'natural' ? 'default' : 'outline'}
-                  size="sm"
-                  className={`${
-                    macroFilter === 'natural' 
-                      ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                      : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-                  }`}
-                  onClick={() => setMacroFilter('natural')}
-                >
-                  Natural ({manCounts.nat})
-                </Button>
-              </div>
+              <>
+                <div className="flex gap-2">
+                  <Button
+                    variant={macroFilter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    className={`${
+                      macroFilter === 'all' 
+                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600 h-11' 
+                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700 h-11'
+                    }`}
+                    onClick={() => setMacroFilter('all')}
+                  >
+                    All Types ({filteredByRegion.length})
+                  </Button>
+                  <Button
+                    variant={macroFilter === 'manmade' ? 'default' : 'outline'}
+                    size="sm"
+                    className={`${
+                      macroFilter === 'manmade' 
+                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600 h-11' 
+                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700 h-11'
+                    }`}
+                    onClick={() => setMacroFilter('manmade')}
+                  >
+                    Man-made ({manCounts.man})
+                  </Button>
+                  <Button
+                    variant={macroFilter === 'natural' ? 'default' : 'outline'}
+                    size="sm"
+                    className={`${
+                      macroFilter === 'natural' 
+                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600 h-11' 
+                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700 h-11'
+                    }`}
+                    onClick={() => setMacroFilter('natural')}
+                  >
+                    Natural ({manCounts.nat})
+                  </Button>
+                </div>
+
+                {/* Size Filter Row (Small / Big) */}
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    variant={sizeFilter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    className={`h-11 ${sizeFilter === 'all' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                    onClick={() => setSizeFilter('all')}
+                  >
+                    Any Size ({filteredByRegion.length})
+                  </Button>
+                  <Button
+                    variant={sizeFilter === 'small' ? 'default' : 'outline'}
+                    size="sm"
+                    className={`h-11 ${sizeFilter === 'small' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                    onClick={() => handleSizeFilter('small')}
+                  >
+                    Small ({sizeCounts.small})
+                  </Button>
+                  <Button
+                    variant={sizeFilter === 'big' ? 'default' : 'outline'}
+                    size="sm"
+                    className={`h-11 ${sizeFilter === 'big' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                    onClick={() => handleSizeFilter('big')}
+                  >
+                    Big ({sizeCounts.big})
+                  </Button>
+                </div>
+              </>
             )}
             
             {/* Lex filter row (non-places) or second rendering for words/names */}
