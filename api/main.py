@@ -139,10 +139,9 @@ def health() -> Dict[str, str]:
 
 
 @app.get("/", include_in_schema=False)
-async def root():
-    """Fast root endpoint for health checks - serves React app index.html"""
-    dist_path = Path(__file__).resolve().parent.parent / "web" / "dist"
-    return FileResponse(dist_path / "index.html", media_type="text/html")
+def root():
+    """Fast root endpoint for health checks"""
+    return {"status": "healthy", "service": "20-Questions Word Helper API"}
 
 
 @app.post("/query")
