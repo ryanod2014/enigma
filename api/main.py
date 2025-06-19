@@ -47,12 +47,13 @@ async def _build_indexes_background() -> None:
         return built_index, built_places, built_names
 
     # Prefer process pool to avoid GIL contention
-    # Re-execute using process pool so heavy CPU work doesn't block event loop
-    loop = asyncio.get_running_loop()
-    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as pool:
-        built_index, built_places, built_names = await loop.run_in_executor(pool, _build_sync)
-
-    index, places_index, names_index = built_index, built_places, built_names
+    try:
+        built_index, built_places, built_names = await run_in_threadpool(_build_sync)
+        index, places_index, names_index = built_index, built_places, built_names
+    except Exception as e:
+        # Log but don't crash the app; endpoints will return 503 until ready
+        import logging
+        logging.exception("Index build failed", exc_info=e)
     _INDEX_READY = True
 
 
