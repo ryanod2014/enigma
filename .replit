@@ -1,6 +1,6 @@
 run = "python3 -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 
-modules = ["python-3.12"]
+modules = ["python-3.11"]
 
 [setup]
 install = ["python3 -m pip install -q -r requirements.txt"]
