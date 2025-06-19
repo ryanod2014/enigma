@@ -10,4 +10,4 @@ run = ["sh", "-c", "python3 -m uvicorn api.main:app --host 0.0.0.0 --port $PORT"
 
 [nix]
 channel = "stable-24_05"
-packages = ["libxcrypt" "rustc" "cargo"] 
+packages = ["libxcrypt", "rustc", "cargo"] 
