@@ -8,6 +8,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+import asyncio
+from fastapi.concurrency import run_in_threadpool
 
 from wordnet_vowel_index import (
     WordIndex,
@@ -20,10 +22,40 @@ from first_name_index import FirstNameIndex
 
 app = FastAPI(title="20-Questions Word Helper API")
 
-# Build the index once at import time – ~1 s
-index = WordIndex()
-places_index = PlaceIndex()  # builds at import
-names_index = FirstNameIndex()
+# ------------------------------------------------------------------ #
+#   Defer heavy index builds to post-startup so health check passes  #
+# ------------------------------------------------------------------ #
+
+index: WordIndex | None = None
+places_index: PlaceIndex | None = None
+names_index: FirstNameIndex | None = None
+
+# Guard flag so endpoints know when indexes are ready
+_INDEX_READY: bool = False
+
+
+async def _build_indexes_background() -> None:
+    """Run blocking index builds in a thread so startup stays <20 s."""
+    global index, places_index, names_index, _INDEX_READY
+
+    def _build_sync():
+        # Heavy CPU work – run synchronously in threadpool
+        built_index = WordIndex()
+        built_places = PlaceIndex()
+        built_names = FirstNameIndex()
+        return built_index, built_places, built_names
+
+    built_index, built_places, built_names = await run_in_threadpool(_build_sync)
+    index = built_index
+    places_index = built_places
+    names_index = built_names
+    _INDEX_READY = True
+
+
+# Kick off background build right after startup
+@app.on_event("startup")
+async def _startup_event():
+    asyncio.create_task(_build_indexes_background())
 
 # rhyme set for nouns filter
 RHYME_FILE = Path(__file__).resolve().parent.parent / "data" / "rhyme_flags.tsv"
