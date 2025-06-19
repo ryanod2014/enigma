@@ -5,8 +5,9 @@ from pathlib import Path
 import csv
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from wordnet_vowel_index import (
     WordIndex,
@@ -135,6 +136,13 @@ class NameOut(BaseModel):
 @app.get("/health")
 def health() -> Dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/", include_in_schema=False)
+async def root():
+    """Fast root endpoint for health checks - serves React app index.html"""
+    dist_path = Path(__file__).resolve().parent.parent / "web" / "dist"
+    return FileResponse(dist_path / "index.html", media_type="text/html")
 
 
 @app.post("/query")
@@ -447,5 +455,12 @@ def query_first_name(q: NameQueryIn):
 
     return {"results": [r.dict() for r in resp], "by_lexname": by_gender}
 
-# Mount compiled React frontend
-app.mount("/", StaticFiles(directory=Path(__file__).resolve().parent.parent / "web" / "dist", html=True), name="static") 
+# Mount static assets under /assets for CSS/JS files
+dist_path = Path(__file__).resolve().parent.parent / "web" / "dist"
+app.mount("/assets", StaticFiles(directory=dist_path / "assets"), name="assets")
+
+# SPA fallback route for deep links (must be last)
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa_fallback(full_path: str):
+    """Catch-all route to serve React app for client-side routing"""
+    return FileResponse(dist_path / "index.html", media_type="text/html") 
