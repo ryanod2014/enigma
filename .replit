@@ -8,8 +8,8 @@ install = [
 ]
 
 [deployment]
-# Install dependencies during the build step. This is critical.
-build = "python3 -m pip install -q -r requirements.txt --break-system-packages"
+# Install dependencies and build the frontend during the build step.
+build = "python3 -m pip install -q -r requirements.txt --break-system-packages && cd web && npm install && npm run build"
 # Run the app on a fixed internal port.
 run = ["sh", "-c", "NLTK_DATA=/home/runner/nltk_data SKIP_WORDNET=1 python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8080"]
 # Explicitly set the deployment target.
