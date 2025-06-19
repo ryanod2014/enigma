@@ -5,7 +5,7 @@ from pathlib import Path
 import csv
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -140,8 +140,8 @@ def health() -> Dict[str, str]:
 
 @app.get("/", include_in_schema=False)
 def root():
-    """Fast root endpoint for health checks"""
-    return {"status": "healthy", "service": "20-Questions Word Helper API"}
+    """Lightweight health-check endpoint required by Replit."""
+    return PlainTextResponse("OK", status_code=200)
 
 
 @app.post("/query")
