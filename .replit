@@ -16,4 +16,8 @@ restartPolicyMaxRetries = 5
 
 [nix]
 channel = "stable-24_05"
-packages = ["libxcrypt", "rustc", "cargo"] 
+packages = ["libxcrypt", "rustc", "cargo"]
+
+[[ports]]
+localPort = 8080
+externalPort = 80 
