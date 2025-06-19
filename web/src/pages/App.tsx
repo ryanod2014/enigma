@@ -466,8 +466,8 @@ export default function App() {
 
         {/* Category Selection - Icon buttons only */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-300">FL</label>
-          <div className="flex gap-2">
+          <label className="block text-sm font-medium text-gray-300 text-right">FL</label>
+          <div className="flex gap-2 justify-end">
             {categories.map((cat) => {
               const IconComponent = cat.icon;
               return (
@@ -491,7 +491,7 @@ export default function App() {
 
         {/* V1 & V2 Selection */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-300">V1&V2</label>
+          <label className="block text-sm font-medium text-gray-300 text-right">V1&V2</label>
           <div className="grid grid-cols-5 gap-2">
             {[1, 2, 3, 4, 5].map((num) => (
               <Button
@@ -546,7 +546,7 @@ export default function App() {
 
         {/* Must Contain Letters (optional) */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-300">Other</label>
+          <label className="block text-sm font-medium text-gray-300 text-right">Other</label>
           <input
             type="text"
             value={mustLetters}
@@ -588,7 +588,7 @@ export default function App() {
             
             {/* City / Country filter row - now above frequency row */}
             {mode === 'places' && (
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-2 justify-end">
                 <Button
                   variant={lexFilter === 'all' ? "default" : "outline"}
                   size="sm"
@@ -614,7 +614,7 @@ export default function App() {
             )}
             
             {/* Frequency + Nickname Filter Buttons */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 justify-end">
               <Button
                 variant={commonFilter === 'all' ? "default" : "outline"}
                 size="sm"
@@ -655,7 +655,7 @@ export default function App() {
             
             {/* Region buttons (after frequency row) */}
             {mode === 'places' && (
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="flex flex-wrap gap-2 mt-2 justify-end">
                 {Object.entries(regionCountsWithAll).filter(([code,c])=>c>0).map(([code,count])=> (
                   <Button
                     key={code}
@@ -673,7 +673,7 @@ export default function App() {
             {/* Macro Man-made / Natural Filter Buttons - Only show for Words mode */}
             {mode === 'words' && (
               <>
-                <div className="flex gap-2">
+                <div className="flex gap-2 justify-end">
                   <Button
                     variant={macroFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
@@ -713,7 +713,7 @@ export default function App() {
                 </div>
 
                 {/* Size Filter Row (Small / Big) */}
-                <div className="flex gap-2 mt-2">
+                <div className="flex gap-2 mt-2 justify-end">
                   <Button
                     variant={sizeFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
@@ -744,7 +744,7 @@ export default function App() {
             
             {/* Lex filter row (non-places) or second rendering for words/names */}
             {mode !== 'places' && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 justify-end">
               <Button
                 variant={lexFilter === 'all' ? "default" : "outline"}
                 size="sm"
@@ -779,7 +779,7 @@ export default function App() {
 
             {/* Nickname Filter Row (Names mode) */}
             {mode === 'names' && (
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-2 justify-end">
                 <Button
                   variant={nicknameFilter === 'all' ? 'default' : 'outline'}
                   size="sm"
@@ -826,7 +826,7 @@ export default function App() {
             {/* Letter Efficiency Helper */}
             {searched && (
                               <div className="space-y-4">
-                  <label className="block text-sm font-medium text-gray-300">Most efficient positions</label>
+                  <label className="block text-sm font-medium text-gray-300 text-right">Most efficient positions</label>
                                     {currentLetterEfficiency.length > 0 || Object.keys(positionFilters).length > 0 ? (
                     (currentLetterEfficiency.length > 0 ? currentLetterEfficiency : 
                       Object.keys(positionFilters).map(pos => [
@@ -835,7 +835,7 @@ export default function App() {
                       ] as [number, { uniqueLetters: number; distribution: Record<string, number> }])
                     ).map(([pos, data], index) => (
                       <div key={pos} className="space-y-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 justify-end">
                           <span className="text-sm text-gray-400">#{index + 1}:</span>
                           <span className="text-sm font-medium text-gray-300">Position {pos}</span>
                           {positionFilters[pos] && (
@@ -855,7 +855,7 @@ export default function App() {
                             </Button>
                           )}
                         </div>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 justify-end">
                           {Object.entries(data.distribution)
                             .sort(([, aCount], [, bCount]) => bCount - aCount)
                             .map(([letter, count]) => (
