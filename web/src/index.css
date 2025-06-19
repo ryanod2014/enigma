@@ -75,4 +75,12 @@
   html {
     background-color: black;
   }
+
+  /* Disable iOS Safari grey tap-highlight and remove lingering focus outlines */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  *:focus {
+    outline: none;
+  }
 } 

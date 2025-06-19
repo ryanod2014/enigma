@@ -348,6 +348,10 @@ export default function App() {
         if (nicknameFilter === 'is_nick') ok = ok && (r as any).is_nickname === true;
         if (msFilter === 'yes') ok = ok && ['m','t','s','f','w'].includes(r.word[0].toLowerCase());
         if (msFilter === 'no') ok = ok && !['m','t','s','f','w'].includes(r.word[0].toLowerCase());
+        // Respect current City/Country (lex) filter as well
+        if (lexFilter !== 'all') {
+          if (!r.lex || cleanLexName(r.lex) !== lexFilter) ok = false;
+        }
         return ok;
       })
       // Apply letter-position filters (these are at the very top of the UI stack)
@@ -647,19 +651,21 @@ export default function App() {
                 >
                   All ({filteredByPosition.length})
                 </Button>
-                {Object.entries(filteredLexCounts)
-                  .sort(([, aCount], [, bCount]) => bCount - aCount)
-                  .map(([cleanedLex, cnt]) => (
+                {['City', 'Country'].map(cleanedLex => {
+                  const cnt = filteredLexCounts[cleanedLex] || 0;
+                  return (
                     <Button
                       key={cleanedLex}
-                      variant={lexFilter === cleanedLex ? "default" : "outline"}
+                      variant={lexFilter === cleanedLex ? 'default' : 'outline'}
                       size="sm"
-                      className={`${lexFilter === cleanedLex ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
-                      onClick={() => setLexFilter(cleanedLex)}
+                      className={`${lexFilter === cleanedLex ? 'bg-gray-600' : 'bg-transparent border-gray-600'} ${cnt === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      disabled={cnt === 0}
+                      onClick={() => cnt > 0 && setLexFilter(cleanedLex)}
                     >
                       {getLexLabel(cleanedLex)} ({cnt})
                     </Button>
-                  ))}
+                  );
+                })}
               </div>
             )}
             
@@ -807,23 +813,21 @@ export default function App() {
               >
                 All ({filteredByPosition.length})
               </Button>
-              {Object.entries(filteredLexCounts)
-                .sort(([, aCount], [, bCount]) => bCount - aCount)
-                .map(([cleanedLex, cnt]) => (
+              {['City', 'Country'].map(cleanedLex => {
+                const cnt = filteredLexCounts[cleanedLex] || 0;
+                return (
                   <Button
                     key={cleanedLex}
-                    variant={lexFilter === cleanedLex ? "default" : "outline"}
+                    variant={lexFilter === cleanedLex ? 'default' : 'outline'}
                     size="sm"
-                    className={`${
-                      lexFilter === cleanedLex 
-                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
-                    }`}
-                    onClick={() => setLexFilter(cleanedLex)}
+                    className={`${lexFilter === cleanedLex ? 'bg-gray-600' : 'bg-transparent border-gray-600'} ${cnt === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={cnt === 0}
+                    onClick={() => cnt > 0 && setLexFilter(cleanedLex)}
                   >
                     {getLexLabel(cleanedLex)} ({cnt})
                   </Button>
-                ))}
+                );
+              })}
             </div>
             )}
 
