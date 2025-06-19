@@ -20,7 +20,7 @@ type CommonFilter = 'all' | 'common' | 'uncommon';
 
 export default function App() {
   const [length, setLength] = useState<number>(4);
-  const [category, setCategory] = useState<number>(1);
+  const [category, setCategory] = useState<number | null>(1);
   const [vowelsAndRandom, setVowelsAndRandom] = useState<string>(''); // Combined input like "123R"
   const [mustLetters, setMustLetters] = useState<string>('');
   const [moreVowels, setMoreVowels] = useState<boolean | undefined>();
@@ -98,7 +98,7 @@ export default function App() {
       
       const { v1, v2, random } = parseVowelsAndRandom(vowelsAndRandom);
       
-      const body: any = { length, category, v1, v2 };
+      const body: any = { length, category: category || 1, v1, v2 };
       if (random) body.random = random;
       if (moreVowels !== undefined) body.more_vowels = moreVowels;
       // Add place filters if in places mode
@@ -493,7 +493,7 @@ export default function App() {
                       ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
                       : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
                   }`}
-                  onClick={() => setCategory(cat.id)}
+                  onClick={() => setCategory(category === cat.id ? null : cat.id)}
                 >
                   <IconComponent className="w-5 h-5" />
                 </Button>
