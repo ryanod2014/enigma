@@ -3,10 +3,15 @@ run = "python3 -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 modules = ["python-3.11"]
 
 [setup]
-install = ["python3 -m pip install -q -r requirements.txt"]
+install = [
+  "python3 -m pip install -q -r requirements.txt",
+  "python3 -m nltk.downloader -q -d /home/runner/nltk_data wordnet"
+]
 
 [deployment]
 run = ["sh", "-c", "python3 -m uvicorn api.main:app --host 0.0.0.0 --port $PORT"]
+healthcheckPath   = "/health"
+healthcheckTimeout = 60
 
 [nix]
 channel = "stable-24_05"
