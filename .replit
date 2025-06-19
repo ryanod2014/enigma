@@ -1,15 +1,14 @@
-run = "NLTK_DATA=/home/runner/nltk_data python3 -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8080}"
+run = "NLTK_DATA=/home/runner/nltk_data SKIP_WORDNET=1 python3 -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8080}"
 
 modules = ["python-3.11"]
 
 [setup]
 install = [
-  "python3 -m pip install -q -r requirements.txt",
-  "python3 -m nltk.downloader -q -d /home/runner/nltk_data wordnet"
+  "python3 -m pip install -q -r requirements.txt"
 ]
 
 [deployment]
-run = ["sh", "-c", "NLTK_DATA=/home/runner/nltk_data python3 -m uvicorn api.main:app --host 0.0.0.0 --port $PORT"]
+run = ["sh", "-c", "NLTK_DATA=/home/runner/nltk_data SKIP_WORDNET=1 python3 -m uvicorn api.main:app --host 0.0.0.0 --port $PORT"]
 healthcheckPath   = "/health"
 healthcheckTimeout = 60
 
