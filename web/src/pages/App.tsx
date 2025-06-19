@@ -20,7 +20,7 @@ type CommonFilter = 'all' | 'common' | 'uncommon';
 
 export default function App() {
   const [length, setLength] = useState<number>(4);
-  const [category, setCategory] = useState<number | null>(1);
+  const [category, setCategory] = useState<number | null>(null);
   const [selectedVowels, setSelectedVowels] = useState<number[]>([1]);
   const [mustLetters, setMustLetters] = useState<string>('');
   const [moreVowels, setMoreVowels] = useState<boolean | undefined>();
@@ -86,8 +86,7 @@ export default function App() {
       
       const v1 = selectedVowels[0] || 1;
       const v2 = selectedVowels[1] || 0;
-      const body: any = { length, category: category || 1, v1, v2 };
-      if (moreVowels !== undefined) body.more_vowels = moreVowels;
+      
       // Add place filters if in places mode
       let endpoint = '/query';
       if (mode === 'places') {
@@ -95,28 +94,79 @@ export default function App() {
         // common filter handled client-side for places
       } else if (mode === 'names') {
         endpoint = '/query_first_name';
-        if (nicknameFilter !== 'all') body.nickname = nicknameFilter;
       }
 
-      // rhyme filter removed
-      if (msFilter === 'yes') body.ms = true;
-      if (msFilter === 'no') body.ms = false;
-      if (sizeFilter === 'small') { body.holdable = true; }
+      if (category === null) {
+        // No category selected - fetch all categories and merge results
+        const requests = [1, 2, 3].map(cat => {
+          const body: any = { length, category: cat, v1, v2 };
+          if (moreVowels !== undefined) body.more_vowels = moreVowels;
+          if (mode === 'names' && nicknameFilter !== 'all') body.nickname = nicknameFilter;
+          if (msFilter === 'yes') body.ms = true;
+          if (msFilter === 'no') body.ms = false;
+          if (sizeFilter === 'small') body.holdable = true;
+          
+          return fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+        });
 
-      console.log('Request body:', body);
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+        const responses = await Promise.all(requests);
+        const dataPromises = responses.map(res => {
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          return res.json();
+        });
+        const allData = await Promise.all(dataPromises);
+
+        // Merge results and deduplicate by word
+        const mergedResults: any[] = [];
+        const seenWords = new Set<string>();
+        const mergedLexCounts: Record<string, number> = {};
+
+        for (const data of allData) {
+          for (const result of data.results) {
+            if (!seenWords.has(result.word)) {
+              mergedResults.push(result);
+              seenWords.add(result.word);
+            }
+          }
+          // Merge lex counts
+          for (const [lex, count] of Object.entries(data.by_lexname || {})) {
+            mergedLexCounts[lex] = (mergedLexCounts[lex] || 0) + (count as number);
+          }
+        }
+
+        console.log('Merged results from all categories:', mergedResults);
+        setResults(mergedResults);
+        setLexCounts(mergedLexCounts);
+        setLetterEfficiency(allData[0]?.letter_efficiency || []);
+      } else {
+        // Single category selected
+        const body: any = { length, category, v1, v2 };
+        if (moreVowels !== undefined) body.more_vowels = moreVowels;
+        if (mode === 'names' && nicknameFilter !== 'all') body.nickname = nicknameFilter;
+        if (msFilter === 'yes') body.ms = true;
+        if (msFilter === 'no') body.ms = false;
+        if (sizeFilter === 'small') body.holdable = true;
+
+        console.log('Request body:', body);
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        const data = await res.json();
+        console.log('Response data:', data);
+        setResults(data.results);
+        setLexCounts(data.by_lexname);
+        setLetterEfficiency(data.letter_efficiency || []);
       }
-      const data = await res.json();
-      console.log('Response data:', data);
-      setResults(data.results);
-      setLexCounts(data.by_lexname);
-      setLetterEfficiency(data.letter_efficiency || []);
+      
       setLexFilter('all');
       setSearched(true);
     } catch (error) {
