@@ -21,6 +21,17 @@ from wordnet_vowel_index import (
 from place_index import PlaceIndex  # new index for countries/cities
 from first_name_index import FirstNameIndex
 
+# This function MUST be at the top level to be pickled for ProcessPoolExecutor
+def build_all_indexes_sync() -> tuple[WordIndex, PlaceIndex, FirstNameIndex]:
+    """Blocking, CPU-intensive function to build all indexes."""
+    # This now runs in a separate process, so it creates its own instances
+    print("[index] Starting background index build process...")
+    built_index = WordIndex()
+    built_places = PlaceIndex()
+    built_names = FirstNameIndex()
+    print("[index] Background index build process finished.")
+    return built_index, built_places, built_names
+
 app = FastAPI(title="20-Questions Word Helper API")
 
 # ------------------------------------------------------------------ #
@@ -35,32 +46,37 @@ names_index: FirstNameIndex | None = None
 _INDEX_READY: bool = False
 
 
-async def _build_indexes_background() -> None:
-    """Run blocking index builds in a thread so startup stays <20 s."""
+async def _startup_build_indexes():
+    """Run index build in a separate process to not block the event loop."""
     global index, places_index, names_index, _INDEX_READY
-
-    def _build_sync():
-        # Heavy CPU work – run synchronously in threadpool
-        built_index = WordIndex()
-        built_places = PlaceIndex()
-        built_names = FirstNameIndex()
-        return built_index, built_places, built_names
-
-    # Prefer process pool to avoid GIL contention
+    
+    loop = asyncio.get_running_loop()
+    
+    # Use ProcessPoolExecutor to run in a separate process and avoid GIL
     try:
-        built_index, built_places, built_names = await run_in_threadpool(_build_sync)
-        index, places_index, names_index = built_index, built_places, built_names
+        with concurrent.futures.ProcessPoolExecutor() as pool:
+            # run_in_executor runs the target function in the process pool
+            built_index, built_places, built_names = await loop.run_in_executor(
+                pool, build_all_indexes_sync
+            )
+        
+        # Assign the results back to the global variables
+        index = built_index
+        places_index = built_places
+        names_index = built_names
+        
+        _INDEX_READY = True
+        print("[index] All indexes assigned and ready.")
     except Exception as e:
-        # Log but don't crash the app; endpoints will return 503 until ready
         import logging
-        logging.exception("Index build failed", exc_info=e)
-    _INDEX_READY = True
+        logging.exception("Fatal error during index build", exc_info=e)
 
 
 # Kick off background build right after startup
 @app.on_event("startup")
-async def _startup_event():
-    asyncio.create_task(_build_indexes_background())
+async def startup_event():
+    # Run the build in the background, don't await it here
+    asyncio.create_task(_startup_build_indexes())
 
 # rhyme set for nouns filter
 RHYME_FILE = Path(__file__).resolve().parent.parent / "data" / "rhyme_flags.tsv"
@@ -183,6 +199,11 @@ def root():
 
 @app.post("/query")
 def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
+    if not _INDEX_READY:
+        raise HTTPException(status_code=503, detail="Indexes are building, please try again in a few moments.")
+    if index is None:
+        raise HTTPException(status_code=500, detail="Word index is not available.")
+
     if q.category not in CATEGORY_MAP:
         raise HTTPException(status_code=400, detail="category must be 1, 2, or 3")
 
@@ -321,6 +342,11 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
 
 @app.post("/query_place")
 def query_place(q: PlaceQueryIn):
+    if not _INDEX_READY:
+        raise HTTPException(status_code=503, detail="Indexes are building, please try again in a few moments.")
+    if places_index is None:
+        raise HTTPException(status_code=500, detail="Places index is not available.")
+
     if q.category not in CATEGORY_MAP:
         raise HTTPException(status_code=400, detail="category must be 1, 2, or 3")
 
@@ -418,6 +444,11 @@ def query_place(q: PlaceQueryIn):
 
 @app.post("/query_first_name")
 def query_first_name(q: NameQueryIn):
+    if not _INDEX_READY:
+        raise HTTPException(status_code=503, detail="Indexes are building, please try again in a few moments.")
+    if names_index is None:
+        raise HTTPException(status_code=500, detail="Names index is not available.")
+
     if q.category not in CATEGORY_MAP:
         raise HTTPException(status_code=400, detail="category must be 1, 2, or 3")
 
