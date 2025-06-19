@@ -32,6 +32,7 @@ import json
 from functools import lru_cache as _lru
 from pathlib import Path
 from typing import Dict, List, Tuple
+import math
 
 # --------------------------------------------------------------------------- #
 # Legacy WordNet imports are optional now. We only fall back to them if our
@@ -229,7 +230,7 @@ OBJECT_TOOL = {
     'pencil','pen','marker','crayon','brush','comb','key','lock','phone','camera',
     'clock','watch','radio','tablet','laptop','computer','mouse','keyboard','drum',
     'guitar','violin','trumpet','ball','bat','racket','frisbee','kite','toy',
-    'dice','card','coin','tool','fireworks','metalwork'
+    'dice','card','coin','tool','fireworks','metalwork','charger'
 }
 
 VEHICLE_MACHINE = {
@@ -248,6 +249,25 @@ NATURAL_MATERIAL = {
 }
 
 PERSON_SUFFIXES = ('er','or','ist','ian')  # crude heuristic
+
+# Actual person/occupation words (more precise than suffix matching)
+PERSON_WORDS = {
+    'teacher', 'driver', 'worker', 'player', 'singer', 'dancer', 'writer',
+    'painter', 'farmer', 'baker', 'maker', 'helper', 'leader', 'speaker',
+    'trader', 'manager', 'banker', 'lawyer', 'doctor', 'actor', 'director',
+    'editor', 'visitor', 'customer', 'stranger', 'passenger', 'officer',
+    'soldier', 'warrior', 'hunter', 'fighter', 'winner', 'loser', 'owner',
+    'buyer', 'seller', 'dealer', 'employer', 'employee', 'partner', 'member',
+    'user', 'caller', 'holder', 'keeper', 'server', 'waiter', 'rider',
+    'swimmer', 'runner', 'climber', 'walker', 'talker', 'sleeper', 'dreamer',
+    'believer', 'follower', 'supporter', 'reporter', 'photographer', 'designer',
+    'engineer', 'programmer', 'developer', 'researcher', 'scientist', 'artist',
+    'musician', 'pianist', 'guitarist', 'drummer', 'violinist', 'organist',
+    'therapist', 'dentist', 'specialist', 'journalist', 'economist', 'tourist',
+    'florist', 'stylist', 'analyst', 'psychologist', 'biologist', 'geologist',
+    'historian', 'librarian', 'vegetarian', 'comedian', 'magician', 'musician',
+    'politician', 'electrician', 'technician', 'physician', 'pediatrician'
+}
 
 
 def classify_subject(word: str) -> tuple[str, bool]:
@@ -269,8 +289,8 @@ def classify_subject(word: str) -> tuple[str, bool]:
     if w in NATURAL_MATERIAL:
         return 'natural-material', False
 
-    # crude person detection
-    if len(w) > 4 and w.endswith(PERSON_SUFFIXES):
+    # precise person detection
+    if w in PERSON_WORDS:
         return 'person', False
 
     return 'unknown', False
@@ -286,11 +306,20 @@ class WordIndex:
         """Build the in-memory index.
 
         Preference order:
-        1. If `data/combined_twentyquestions.jsonl` is present → use it (fast).
+        1. If `data/enhanced_twentyquestions.jsonl` is present → use it (fast).
         2. Fallback to the original WordNet crawl (slow, requires NLTK).
         """
 
-        jsonl_path = Path(__file__).resolve().parent / "data" / "combined_twentyquestions.jsonl"
+        data_dir = Path(__file__).resolve().parent / "data"
+        enhanced_path = data_dir / "enhanced_twentyquestions.jsonl"
+        combined_path = data_dir / "combined_twentyquestions.jsonl"
+
+        # Prefer the enhanced file (includes original keywords + aliases)
+        if enhanced_path.is_file():
+            jsonl_path = enhanced_path
+        else:
+            jsonl_path = combined_path
+
         if jsonl_path.is_file():
             self._build_from_jsonl(jsonl_path)
             return  # ✅ done – no need for WordNet
@@ -460,6 +489,7 @@ class WordIndex:
         print(f"[index] building from {jsonl_path.name}…", file=sys.stderr)
 
         subject_counts: dict[str, int] = {}
+        keyword_subjects: set[str] = set()
 
         with jsonl_path.open("r", encoding="utf-8") as fh:
             for line in fh:
@@ -469,6 +499,10 @@ class WordIndex:
                     continue  # skip malformed lines
 
                 subj_raw = str(obj.get("subject", "")).strip().lower()
+
+                # If this is a keyword entry, add to keyword set
+                if obj.get("source") == "keywords":
+                    keyword_subjects.add(subj_raw)
 
                 # Basic sanity checks ------------------------------------------------
                 if not subj_raw:
@@ -481,8 +515,42 @@ class WordIndex:
                 # Count occurrences (frequency in dataset)
                 subject_counts[subj_raw] = subject_counts.get(subj_raw, 0) + 1
 
-        # Now process unique subjects with their counts
-        for subj_raw, count in subject_counts.items():
+        # -------------------------------------------------------------- #
+        #   Determine "common" sets – top 20 % most-frequent words per
+        #   categorical bucket (animal, object-tool, etc.).  This gives a
+        #   dynamic threshold that adapts to data size rather than a hard
+        #   count.  Keyword entries will always be marked common later.
+        # -------------------------------------------------------------- #
+
+        cat_lists: Dict[str, List[Tuple[str, int]]] = {}
+
+        # First pass – add subjects that have explicit counts
+        for subj_raw, cnt in subject_counts.items():
+            bucket, _ = classify_subject(subj_raw)
+            if bucket == 'person':
+                continue
+            cat_lists.setdefault(bucket, []).append((subj_raw, cnt))
+
+        # Second pass – ensure keyword-only subjects are represented (cnt=1)
+        for subj_raw in keyword_subjects:
+            if subj_raw not in subject_counts:  # already handled otherwise
+                bucket, _ = classify_subject(subj_raw)
+                if bucket == 'person':
+                    continue
+                cat_lists.setdefault(bucket, []).append((subj_raw, 1))
+
+        # Build the per-bucket "common" sets (top 20 %)
+        common_sets: Dict[str, set[str]] = {}
+        for bucket, lst in cat_lists.items():
+            lst.sort(key=lambda t: t[1], reverse=True)
+            top_n = max(1, math.ceil(len(lst) * 0.20))  # at least one word
+            common_sets[bucket] = {w for w, _ in lst[:top_n]}
+
+
+        # Now process subjects: prioritize keyword entries, then frequent entries
+        all_subjects = keyword_subjects.union(subject_counts.keys())
+        for subj_raw in all_subjects:
+            count = subject_counts.get(subj_raw, 1)  # keyword entries get count=1 if not in training data
             vpos = vowel_positions(subj_raw)
             if not vpos:
                 continue  # must contain at least one vowel
@@ -494,8 +562,8 @@ class WordIndex:
             if bucket == 'person':
                 continue  # skip persons/characters entirely
 
-            # Common = appears 3+ times in dataset (somewhat arbitrary threshold)
-            is_common = count >= 3
+            # Common flag: top-20 % by frequency within its bucket, or any curated keyword.
+            is_common = (subj_raw in common_sets.get(bucket, set())) or (subj_raw in keyword_subjects)
 
             key = (len(subj_raw), subj_raw[0], first_v, second_v)
             self.index.setdefault(key, []).append({
