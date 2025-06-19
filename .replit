@@ -17,8 +17,8 @@ deploymentTarget = "cloudrun"
 
 [nix]
 channel = "stable-24_05"
-# Add Node.js to the environment for the frontend build.
-packages = ["nodejs-18_x"] 
+# Add Node.js AND npm to the environment for the frontend build.
+packages = ["nodejs", "npm"] 
 
 # Map the internal port to the external port Replit expects for health checks.
 [[ports]]
