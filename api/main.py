@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import asyncio
 from fastapi.concurrency import run_in_threadpool
+import concurrent.futures
 
 from wordnet_vowel_index import (
     WordIndex,
@@ -45,10 +46,13 @@ async def _build_indexes_background() -> None:
         built_names = FirstNameIndex()
         return built_index, built_places, built_names
 
-    built_index, built_places, built_names = await run_in_threadpool(_build_sync)
-    index = built_index
-    places_index = built_places
-    names_index = built_names
+    # Prefer process pool to avoid GIL contention
+    # Re-execute using process pool so heavy CPU work doesn't block event loop
+    loop = asyncio.get_running_loop()
+    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as pool:
+        built_index, built_places, built_names = await loop.run_in_executor(pool, _build_sync)
+
+    index, places_index, names_index = built_index, built_places, built_names
     _INDEX_READY = True
 
 
