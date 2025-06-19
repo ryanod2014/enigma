@@ -651,21 +651,19 @@ export default function App() {
                 >
                   All ({filteredByPosition.length})
                 </Button>
-                {['City', 'Country'].map(cleanedLex => {
-                  const cnt = filteredLexCounts[cleanedLex] || 0;
-                  return (
+                {Object.entries(filteredLexCounts)
+                  .sort(([, aCount], [, bCount]) => bCount - aCount)
+                  .map(([cleanedLex, cnt]) => (
                     <Button
                       key={cleanedLex}
                       variant={lexFilter === cleanedLex ? 'default' : 'outline'}
                       size="sm"
-                      className={`${lexFilter === cleanedLex ? 'bg-gray-600' : 'bg-transparent border-gray-600'} ${cnt === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      disabled={cnt === 0}
-                      onClick={() => cnt > 0 && setLexFilter(cleanedLex)}
+                      className={`${lexFilter === cleanedLex ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                      onClick={() => setLexFilter(cleanedLex)}
                     >
                       {getLexLabel(cleanedLex)} ({cnt})
                     </Button>
-                  );
-                })}
+                  ))}
               </div>
             )}
             
@@ -813,21 +811,19 @@ export default function App() {
               >
                 All ({filteredByPosition.length})
               </Button>
-              {['City', 'Country'].map(cleanedLex => {
-                const cnt = filteredLexCounts[cleanedLex] || 0;
-                return (
+              {Object.entries(filteredLexCounts)
+                .sort(([, aCount], [, bCount]) => bCount - aCount)
+                .map(([cleanedLex, cnt]) => (
                   <Button
                     key={cleanedLex}
                     variant={lexFilter === cleanedLex ? 'default' : 'outline'}
                     size="sm"
-                    className={`${lexFilter === cleanedLex ? 'bg-gray-600' : 'bg-transparent border-gray-600'} ${cnt === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    disabled={cnt === 0}
-                    onClick={() => cnt > 0 && setLexFilter(cleanedLex)}
+                    className={`${lexFilter === cleanedLex ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                    onClick={() => setLexFilter(cleanedLex)}
                   >
                     {getLexLabel(cleanedLex)} ({cnt})
                   </Button>
-                );
-              })}
+                ))}
             </div>
             )}
 
