@@ -1,10 +1,10 @@
 run = "python3 -m pip install -q -r requirements.txt && python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000"
 
-modules = ["python-3.12", "nodejs-20", "web"]
+modules = ["python-3.12"]
 
 [deployment]
 run = ["sh", "-c", "python3 -m pip install -q -r requirements.txt && python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["libxcrypt" "nodejs_20"] 
+packages = ["libxcrypt"] 
