@@ -21,7 +21,7 @@ type CommonFilter = 'all' | 'common' | 'uncommon';
 export default function App() {
   const [length, setLength] = useState<number>(4);
   const [category, setCategory] = useState<number | null>(1);
-  const [vowelsAndRandom, setVowelsAndRandom] = useState<string>(''); // Combined input like "123R"
+  const [selectedVowels, setSelectedVowels] = useState<number[]>([1]);
   const [mustLetters, setMustLetters] = useState<string>('');
   const [moreVowels, setMoreVowels] = useState<boolean | undefined>();
   const [loading, setLoading] = useState(false);
@@ -59,19 +59,7 @@ export default function App() {
 
   // No lex set needed; API provides manmade flag
 
-  // Parse vowelsAndRandom input like "123R" -> v1=1, v2=2, random="3R"
-  function parseVowelsAndRandom(input: string) {
-    if (!input) return { v1: 1, v2: 0, random: '' };
-    
-    const digits = input.match(/\d/g) || [];
-    const letters = input.match(/[A-Z]/gi) || [];
-    
-    const v1 = digits[0] ? parseInt(digits[0]) : 1;
-    const v2 = digits[1] ? parseInt(digits[1]) : 0;
-    const random = digits.slice(2).join('') + letters.join('');
-    
-    return { v1, v2, random };
-  }
+
 
   // Clean up lexical category names (e.g. "noun.artifact" -> "Artifact")
   function cleanLexName(lex: string): string {
@@ -96,10 +84,9 @@ export default function App() {
       setLoading(true);
       console.log('Submitting query...');
       
-      const { v1, v2, random } = parseVowelsAndRandom(vowelsAndRandom);
-      
+      const v1 = selectedVowels[0] || 1;
+      const v2 = selectedVowels[1] || 0;
       const body: any = { length, category: category || 1, v1, v2 };
-      if (random) body.random = random;
       if (moreVowels !== undefined) body.more_vowels = moreVowels;
       // Add place filters if in places mode
       let endpoint = '/query';
@@ -502,16 +489,59 @@ export default function App() {
           </div>
         </div>
 
-        {/* Combined Vowels & Random Input */}
+        {/* V1 & V2 Selection */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-300">V1&V2</label>
-          <input 
-            type="text" 
-            value={vowelsAndRandom} 
-            onChange={(e) => setVowelsAndRandom(e.target.value.toUpperCase())}
-            placeholder="e.g. 12"
-            className="w-full border border-gray-600 bg-transparent text-gray-400 rounded-lg p-3 text-lg placeholder-gray-500"
-          />
+          <div className="grid grid-cols-5 gap-2">
+            {[1, 2, 3, 4, 5].map((num) => (
+              <Button
+                key={`vowel-${num}`}
+                variant={selectedVowels.includes(num) ? "default" : "outline"}
+                size="sm"
+                className={`h-11 ${
+                  selectedVowels.includes(num)
+                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
+                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                }`}
+                onClick={() => {
+                  if (selectedVowels.includes(num)) {
+                    setSelectedVowels(selectedVowels.filter(v => v !== num));
+                  } else if (selectedVowels.length < 2) {
+                    setSelectedVowels([...selectedVowels, num].sort());
+                  } else {
+                    setSelectedVowels([selectedVowels[1], num].sort());
+                  }
+                }}
+              >
+                {num}
+              </Button>
+            ))}
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {[6, 7, 8, 9, 10].map((num) => (
+              <Button
+                key={`vowel-${num}`}
+                variant={selectedVowels.includes(num) ? "default" : "outline"}
+                size="sm"
+                className={`h-11 ${
+                  selectedVowels.includes(num)
+                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
+                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                }`}
+                onClick={() => {
+                  if (selectedVowels.includes(num)) {
+                    setSelectedVowels(selectedVowels.filter(v => v !== num));
+                  } else if (selectedVowels.length < 2) {
+                    setSelectedVowels([...selectedVowels, num].sort());
+                  } else {
+                    setSelectedVowels([selectedVowels[1], num].sort());
+                  }
+                }}
+              >
+                {num}
+              </Button>
+            ))}
+          </div>
         </div>
 
         {/* Must Contain Letters (optional) */}
