@@ -447,5 +447,5 @@ def query_first_name(q: NameQueryIn):
 
     return {"results": [r.dict() for r in resp], "by_lexname": by_gender}
 
-# Mount compiled React frontend (commented out for API-only mode)
-# app.mount("/", StaticFiles(directory=Path(__file__).resolve().parent.parent / "web" / "dist", html=True), name="static") 
+# Mount compiled React frontend
+app.mount("/", StaticFiles(directory=Path(__file__).resolve().parent.parent / "web" / "dist", html=True), name="static") 
