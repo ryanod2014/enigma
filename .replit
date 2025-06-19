@@ -1,9 +1,12 @@
-run = "python3 -m pip install -q -r requirements.txt && python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000"
+run = "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 
 modules = ["python-3.12"]
 
+[setup]
+install = ["python3 -m pip install -q -r requirements.txt"]
+
 [deployment]
-run = ["sh", "-c", "python3 -m pip install -q -r requirements.txt && python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000"]
+run = ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port $PORT"]
 
 [nix]
 channel = "stable-24_05"
