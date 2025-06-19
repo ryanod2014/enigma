@@ -114,7 +114,13 @@ COMMON_ZIPF_THRESHOLD = 3.5
 # Fallback: WordNet lemma.count() occurrences
 COMMON_COUNT_THRESHOLD = 0  # include even very rare words; we will filter in API
 
-_PHYSICAL_ROOT = wn.synset('physical_entity.n.01') if wn else None
+_PHYSICAL_ROOT = None
+if wn:
+    try:
+        _PHYSICAL_ROOT = wn.synset('physical_entity.n.01')
+    except LookupError:
+        # corpus missing – proceed without physical_entity hierarchy
+        _PHYSICAL_ROOT = None
 
 @_lru(maxsize=2048)
 def is_physical(syn) -> bool:
