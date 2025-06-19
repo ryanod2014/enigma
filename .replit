@@ -1,5 +1,4 @@
-run = "python3 -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"
-run = "SKIP_WORDNET=1 python3 -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+run = "NLTK_DATA=/home/runner/nltk_data SKIP_WORDNET=1 python3 -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"
 
 modules = ["python-3.11"]
 
@@ -10,7 +9,7 @@ install = [
 ]
 
 [deployment]
-run = ["sh", "-c", "SKIP_WORDNET=1 python3 -m uvicorn api.main:app --host 0.0.0.0 --port $PORT"]
+run = ["sh", "-c", "NLTK_DATA=/home/runner/nltk_data SKIP_WORDNET=1 python3 -m uvicorn api.main:app --host 0.0.0.0 --port $PORT"]
 healthcheckPath   = "/health"
 healthcheckTimeout = 60
 

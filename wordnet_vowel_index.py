@@ -33,6 +33,7 @@ from functools import lru_cache as _lru
 from pathlib import Path
 from typing import Dict, List, Tuple
 import math
+import os
 
 # --------------------------------------------------------------------------- #
 # Legacy WordNet imports are optional now. We only fall back to them if our
@@ -49,6 +50,10 @@ try:
         from wordfreq import zipf_frequency  # type: ignore
     except ImportError:
         zipf_frequency = None  # type: ignore
+
+    # Set up NLTK data path for Replit
+    if os.getenv('NLTK_DATA'):
+        nltk.data.path.append(os.getenv('NLTK_DATA'))
 except ImportError:  # NLTK not installed – totally fine for JSONL mode
     nltk = None  # type: ignore
     wn = None  # type: ignore
@@ -61,8 +66,11 @@ import csv
 try:
     wn.synsets("dog")
 except LookupError:  # first run
-    print("[setup] downloading WordNet…", file=sys.stderr)
-    nltk.download("wordnet")
+    if not os.getenv('SKIP_WORDNET'):
+        print("[setup] downloading WordNet…", file=sys.stderr)
+        nltk.download("wordnet")
+    else:
+        print("[setup] skipping WordNet download (SKIP_WORDNET=1)", file=sys.stderr)
 
 VOWELS = "AEIOUY"
 
