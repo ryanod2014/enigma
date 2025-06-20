@@ -506,7 +506,7 @@ def query_first_name(q: NameQueryIn):
 
         count = meta.get("count", 0)
         freq_val = (count / 10_000.0) if count else 0.1
-        is_common = meta.get("rank_us", 0) and meta.get("rank_us", 0) <= 200
+        is_common = freq_val >= 1.0
         resp.append(
             NameOut(
                 word=n,
