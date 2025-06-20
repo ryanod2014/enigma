@@ -118,6 +118,9 @@ class WordOut(BaseModel):
     manmade: bool = False
     common: bool = True  # not used but front-end expects
     holdable: Optional[bool] = None
+    origin: Optional[str] = None
+    size: Optional[str] = None
+    label: Optional[str] = None
 
 
 # --------------------------- Places models ----------------------------- #
@@ -280,6 +283,9 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
                 manmade=item.get("manmade", False),
                 common=item.get("common", False),
                 holdable=item.get("holdable"),
+                origin=item.get("origin"),
+                size=item.get("size"),
+                label=item.get("label"),
             )
         )
 

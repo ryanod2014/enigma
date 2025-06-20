@@ -329,3 +329,23 @@ This project is open source and available under the [MIT License](LICENSE).
   ```bash
   python scripts/generate_country_keys.py > country_keys.csv
   ``` 
+
+## Labeling noun metadata with Gemini
+
+We use Google's Gemini-flash 2.0 to auto-label every 20-Questions subject along three dimensions:
+
+1. **Origin** – man-made / natural / both
+2. **Size** – fits-in-backpack / too-big-for-backpack / size-varies
+3. **Primary category** – animal, person, food, plant, vehicle, tool, electronics, household, clothing, place, abstract, other
+
+A helper script `scripts/build_labels_with_gemini.py` streams the 9.8 k subjects in batches of 100, writes the results to `data/thing_labels.tsv`, and is resumable.
+
+```bash
+# first 100 (dry-run)
+python scripts/build_labels_with_gemini.py
+
+# full dataset (≈ 10 batches)
+python scripts/build_labels_with_gemini.py --all
+```
+
+The script needs a **temporary API key** – paste it into the `API_KEY` constant and delete after running. The key never ships to production. 

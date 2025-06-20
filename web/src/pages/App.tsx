@@ -101,6 +101,7 @@ export default function App() {
         const requests = [1, 2, 3].map(cat => {
           const body: any = { length, category: cat, v1, v2 };
           if (moreVowels !== undefined) body.more_vowels = moreVowels;
+          if (mustLetters) body.must_letters = mustLetters;
           if (mode === 'names' && nicknameFilter !== 'all') body.nickname = nicknameFilter;
           if (msFilter === 'yes') body.ms = true;
           if (msFilter === 'no') body.ms = false;
@@ -146,6 +147,7 @@ export default function App() {
         // Single category selected
         const body: any = { length, category, v1, v2 };
         if (moreVowels !== undefined) body.more_vowels = moreVowels;
+        if (mustLetters) body.must_letters = mustLetters;
         if (mode === 'names' && nicknameFilter !== 'all') body.nickname = nicknameFilter;
         if (msFilter === 'yes') body.ms = true;
         if (msFilter === 'no') body.ms = false;
@@ -490,8 +492,8 @@ export default function App() {
                 size="sm"
                 className={`h-11 ${
                   length === num 
-                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                    ? 'bg-gray-600 text-white border-gray-600' 
+                    : 'bg-transparent text-white border-gray-600'
                 }`}
                 onClick={() => setLength(num)}
               >
@@ -507,8 +509,8 @@ export default function App() {
                 size="sm"
                 className={`h-11 ${
                   length === num 
-                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                    ? 'bg-gray-600 text-white border-gray-600' 
+                    : 'bg-transparent text-white border-gray-600'
                 }`}
                 onClick={() => setLength(num)}
               >
@@ -529,10 +531,10 @@ export default function App() {
                   key={cat.id}
                   variant={category === cat.id ? "default" : "outline"}
                   size="sm"
-                  className={`min-w-[36px] h-10 sm:min-w-[44px] sm:h-11 ${
+                  className={`h-16 w-16 ${
                     category === cat.id 
-                      ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                      : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                      ? 'bg-gray-600 text-white border-gray-600' 
+                      : 'bg-transparent text-white border-gray-600'
                   }`}
                   onClick={() => setCategory(category === cat.id ? null : cat.id)}
                 >
@@ -554,8 +556,8 @@ export default function App() {
                 size="sm"
                 className={`h-11 ${
                   selectedVowels.includes(num)
-                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                    ? 'bg-gray-600 text-white border-gray-600' 
+                    : 'bg-transparent text-white border-gray-600'
                 }`}
                 onClick={() => {
                   if (selectedVowels.includes(num)) {
@@ -579,8 +581,8 @@ export default function App() {
                 size="sm"
                 className={`h-11 ${
                   selectedVowels.includes(num)
-                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                    ? 'bg-gray-600 text-white border-gray-600' 
+                    : 'bg-transparent text-white border-gray-600'
                 }`}
                 onClick={() => {
                   if (selectedVowels.includes(num)) {
@@ -613,7 +615,7 @@ export default function App() {
         {/* Search Button */}
         <Button 
           onClick={submit} 
-          className="w-full h-12 text-lg bg-transparent hover:bg-gray-700 border border-gray-600 text-gray-400" 
+          className="w-full h-12 text-lg bg-transparent border border-gray-600 text-gray-400" 
           disabled={loading}
         >
           {loading ? (
@@ -674,8 +676,8 @@ export default function App() {
                 size="sm"
                 className={`${
                   commonFilter === 'all' 
-                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                    ? 'bg-gray-600 text-white border-gray-600' 
+                    : 'bg-transparent text-white border-gray-600'
                 }`}
                 onClick={() => setCommonFilter('all')}
               >
@@ -686,8 +688,8 @@ export default function App() {
                 size="sm"
                 className={`${
                   commonFilter === 'common' 
-                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                    ? 'bg-gray-600 text-white border-gray-600' 
+                    : 'bg-transparent text-white border-gray-600'
                 }`}
                 onClick={() => setCommonFilter('common')}
               >
@@ -698,8 +700,8 @@ export default function App() {
                 size="sm"
                 className={`${
                   commonFilter === 'uncommon' 
-                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                    ? 'bg-gray-600 text-white border-gray-600' 
+                    : 'bg-transparent text-white border-gray-600'
                 }`}
                 onClick={() => setCommonFilter('uncommon')}
               >
@@ -733,8 +735,8 @@ export default function App() {
                     size="sm"
                     className={`${
                       macroFilter === 'all' 
-                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600 h-11' 
-                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700 h-11'
+                        ? 'bg-gray-600 text-white border-gray-600 h-11' 
+                        : 'bg-transparent text-white border-gray-600 h-11'
                     }`}
                     onClick={() => setMacroFilter('all')}
                   >
@@ -745,8 +747,8 @@ export default function App() {
                     size="sm"
                     className={`${
                       macroFilter === 'manmade' 
-                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600 h-11' 
-                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700 h-11'
+                        ? 'bg-gray-600 text-white border-gray-600 h-11' 
+                        : 'bg-transparent text-white border-gray-600 h-11'
                     }`}
                     onClick={() => setMacroFilter('manmade')}
                   >
@@ -757,8 +759,8 @@ export default function App() {
                     size="sm"
                     className={`${
                       macroFilter === 'natural' 
-                        ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600 h-11' 
-                        : 'bg-transparent text-white border-gray-600 hover:bg-gray-700 h-11'
+                        ? 'bg-gray-600 text-white border-gray-600 h-11' 
+                        : 'bg-transparent text-white border-gray-600 h-11'
                     }`}
                     onClick={() => setMacroFilter('natural')}
                   >
@@ -804,8 +806,8 @@ export default function App() {
                 size="sm"
                 className={`${
                   lexFilter === 'all' 
-                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600' 
-                    : 'bg-transparent text-white border-gray-600 hover:bg-gray-700'
+                    ? 'bg-gray-600 text-white border-gray-600' 
+                    : 'bg-transparent text-white border-gray-600'
                 }`}
                 onClick={() => setLexFilter('all')}
               >
@@ -892,7 +894,7 @@ export default function App() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-6 px-2 text-xs bg-transparent border-gray-600 text-gray-400 hover:bg-gray-700"
+                              className="h-6 px-2 text-xs bg-transparent border-gray-600 text-gray-400"
                               onClick={() => {
                                 setPositionFilters(prev => {
                                   const newFilters = { ...prev };
@@ -915,8 +917,8 @@ export default function App() {
                                 variant={positionFilters[pos] === letter ? 'default' : 'outline'}
                                 className={`h-8 px-2 text-xs ${
                                   positionFilters[pos] === letter
-                                    ? 'bg-gray-600 text-white hover:bg-gray-500 border-gray-600'
-                                    : 'bg-transparent text-gray-400 border-gray-600 hover:bg-gray-700'
+                                    ? 'bg-gray-600 text-white border-gray-600'
+                                    : 'bg-transparent text-gray-400 border-gray-600'
                                 }`}
                                 onClick={() => {
                                   setPositionFilters(prev => {
@@ -953,7 +955,7 @@ export default function App() {
                 {displayed.map((r) => (
                   <div 
                     key={r.word} 
-                    className="border border-gray-600 bg-transparent rounded-lg p-3 flex justify-between items-center cursor-pointer hover:bg-gray-900 transition-colors"
+                    className="border border-gray-600 bg-transparent rounded-lg p-3 flex justify-between items-center cursor-pointer"
                     onClick={() => window.open(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(r.word)}`, '_blank')}
                   >
                     <span className="font-medium text-gray-400">{r.word}</span>

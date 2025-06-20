@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 import math
 import os
+import csv
 
 # --------------------------------------------------------------------------- #
 # Legacy WordNet imports are optional now. We only fall back to them if our
@@ -59,8 +60,6 @@ except ImportError:  # NLTK not installed – totally fine for JSONL mode
     wn = None  # type: ignore
     WordNetLemmatizer = None  # type: ignore
     zipf_frequency = None  # type: ignore
-
-import csv
 
 # Make sure WordNet corpora are present -------------------------------------- #
 try:
@@ -415,6 +414,8 @@ class WordIndex:
 
         # After main build loop, fill in any missing metadata so UI size/manmade filters work
         self._fill_missing_metadata()
+        # Apply Gemini-generated labels (origin/size/category) if available
+        self._apply_gemini_labels()
 
         print(f"[index] done – {len(self.index):,} unique (len,letter,v1,v2) keys", file=sys.stderr)
 
@@ -599,6 +600,9 @@ class WordIndex:
                     seen_words.add(item["word"])
             self.index[k] = deduped
 
+        # Attach Gemini flash labels
+        self._apply_gemini_labels()
+
         print(f"[index] done – {len(self.index):,} keys from JSONL", file=sys.stderr)
 
     # ------------------------------------------------------------------ #
@@ -620,6 +624,26 @@ class WordIndex:
                 item['manmade'] = man_flag
                 item['cat'] = bucket
 
+    # ------------------------------------------------------------------ #
+    def _apply_gemini_labels(self) -> None:
+        """Attach origin/size/category entries from `_LABELS_DICT` to every
+        word in the index – if a word has no entry we leave fields absent. """
+
+        if not _LABELS_DICT:
+            return
+
+        for lst in self.index.values():
+            for item in lst:
+                meta = _LABELS_DICT.get(item['word'])
+                if meta:
+                    item.update(meta)
+                    # Override 'cat' so API grouping reflects Gemini category
+                    if 'label' in meta:
+                        item['cat'] = meta['label']
+                    # Derive manmade flag from origin
+                    if 'origin' in meta:
+                        item['manmade'] = (meta['origin'] == 'man-made')
+
 
 # -------------------------------------------------------------------------- #
 # CLI helper
@@ -631,7 +655,7 @@ def _cli():
             "Usage:\n"
             "  Exact-letter:   wordnet_vowel_index.py <len> <letter> <v1> [v2]\n"
             "  Category mode:  wordnet_vowel_index.py <len> <1|2|3> <v1> [v2] [random] [more]\n"
-            "    random → e.g. 5S  (position+letter)\n"
+            "    random → e.g. 5S  (position followed by letter)\n"
             "    more   → y/n  (y = >2 vowels)\n",
             file=sys.stderr,
         )
@@ -674,4 +698,18 @@ def _cli():
 
 
 if __name__ == "__main__":
-    _cli() 
+    _cli()
+
+LABELS_FILE = Path(__file__).resolve().parent / "data" / "thing_labels.tsv"
+_LABELS_DICT: dict[str, dict[str, str]] = {}
+if LABELS_FILE.is_file():
+    with LABELS_FILE.open() as lf:
+        reader = csv.reader(lf, delimiter="\t")
+        for row in reader:
+            if len(row) >= 4:
+                word = row[0].lower()
+                _LABELS_DICT[word] = {
+                    "origin": row[1].lower(),
+                    "size": row[2].lower(),
+                    "label": row[3].lower(),
+                }

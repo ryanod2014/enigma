@@ -8,3 +8,4 @@ tqdm>=4.66
 pronouncing>=0.2
 fuzzy==1.2.2
 nltk>=3.8
+google-generativeai
