@@ -416,6 +416,8 @@ class WordIndex:
         self._fill_missing_metadata()
         # Apply Gemini-generated labels (origin/size/category) if available
         self._apply_gemini_labels()
+        # Remove person and abstract items after Gemini labels are applied
+        self._filter_excluded_categories()
 
         print(f"[index] done – {len(self.index):,} unique (len,letter,v1,v2) keys", file=sys.stderr)
 
@@ -531,35 +533,9 @@ class WordIndex:
                 subject_counts[subj_raw] = subject_counts.get(subj_raw, 0) + 1
 
         # -------------------------------------------------------------- #
-        #   Determine "common" sets – top 20 % most-frequent words per
-        #   categorical bucket (animal, object-tool, etc.).  This gives a
-        #   dynamic threshold that adapts to data size rather than a hard
-        #   count.  Keyword entries will always be marked common later.
+        #   Simple frequency-based common classification:
+        #   Words with frequency > 1 are common, frequency <= 1 are uncommon
         # -------------------------------------------------------------- #
-
-        cat_lists: Dict[str, List[Tuple[str, int]]] = {}
-
-        # First pass – add subjects that have explicit counts
-        for subj_raw, cnt in subject_counts.items():
-            bucket, _ = classify_subject(subj_raw)
-            if bucket == 'person':
-                continue
-            cat_lists.setdefault(bucket, []).append((subj_raw, cnt))
-
-        # Second pass – ensure keyword-only subjects are represented (cnt=1)
-        for subj_raw in keyword_subjects:
-            if subj_raw not in subject_counts:  # already handled otherwise
-                bucket, _ = classify_subject(subj_raw)
-                if bucket == 'person':
-                    continue
-                cat_lists.setdefault(bucket, []).append((subj_raw, 1))
-
-        # Build the per-bucket "common" sets (top 20 %)
-        common_sets: Dict[str, set[str]] = {}
-        for bucket, lst in cat_lists.items():
-            lst.sort(key=lambda t: t[1], reverse=True)
-            top_n = max(1, math.ceil(len(lst) * 0.20))  # at least one word
-            common_sets[bucket] = {w for w, _ in lst[:top_n]}
 
 
         # Now process subjects: prioritize keyword entries, then frequent entries
@@ -577,8 +553,8 @@ class WordIndex:
             if bucket == 'person':
                 continue  # skip persons/characters entirely
 
-            # Common flag: top-20 % by frequency within its bucket, or any curated keyword.
-            is_common = (subj_raw in common_sets.get(bucket, set())) or (subj_raw in keyword_subjects)
+            # Simple frequency-based common classification: frequency > 1 = common
+            is_common = count > 1
 
             key = (len(subj_raw), subj_raw[0], first_v, second_v)
             self.index.setdefault(key, []).append({
@@ -602,6 +578,9 @@ class WordIndex:
 
         # Attach Gemini flash labels
         self._apply_gemini_labels()
+
+        # Remove person and abstract items after Gemini labels are applied
+        self._filter_excluded_categories()
 
         print(f"[index] done – {len(self.index):,} keys from JSONL", file=sys.stderr)
 
@@ -643,6 +622,21 @@ class WordIndex:
                     # Derive manmade flag from origin
                     if 'origin' in meta:
                         item['manmade'] = (meta['origin'] == 'man-made')
+
+    # ------------------------------------------------------------------ #
+    def _filter_excluded_categories(self) -> None:
+        """Remove items with 'person', 'abstract', or 'place' categories after Gemini labels are applied."""
+        excluded_categories = {'person', 'abstract', 'place'}
+        
+        for key, lst in list(self.index.items()):
+            # Filter out items with excluded categories
+            filtered_lst = [item for item in lst if item.get('cat') not in excluded_categories]
+            
+            # Update or remove the key entirely if no items left
+            if filtered_lst:
+                self.index[key] = filtered_lst
+            else:
+                del self.index[key]
 
 
 # -------------------------------------------------------------------------- #
