@@ -159,7 +159,7 @@ def vowel_positions(word: str) -> Tuple[int, ...]:
 
 # Helper: get character at 1-based *pos* (ignores spaces). Returns '' if out of range.
 def _char_at(word: str, pos: int) -> str:
-    clean = word.replace(" ", "")
+    clean = word.replace(" ", "").replace("-", "")
     if 1 <= pos <= len(clean):
         return clean[pos - 1]
     return ""
@@ -412,6 +412,11 @@ class WordIndex:
                     seen.add(item["word"])
             self.index[k] = deduped
 
+        # ------------------------------------------------------------------ #
+        # Add compound/normal flag once we have the full word list
+        # ------------------------------------------------------------------ #
+        self._add_compound_flags()
+
         # After main build loop, fill in any missing metadata so UI size/manmade filters work
         self._fill_missing_metadata()
         # Apply Gemini-generated labels (origin/size/category) if available
@@ -447,6 +452,7 @@ class WordIndex:
         random_constraint: str | None = None,
         more_vowels: bool | None = None,
         holdable: bool | None = None,
+        compound: bool | None = None,
     ) -> List[Dict[str, any]]:
         """Advanced query using *first-letter category* instead of exact letter.
 
@@ -458,6 +464,7 @@ class WordIndex:
             random_constraint: optional string like "5S" meaning *s* is 5th letter
             more_vowels: if True → word has >2 vowels; if False → ≤2 vowels; if None ignore
             holdable: if True → only holdable words; if False → only non-holdable words; if None ignore
+            compound: if True → only compound words; if False → only non-compound words; if None ignore
         """
         if category not in CATEGORY_MAP:
             raise ValueError(f"Unknown category {category}. Must be 1, 2, or 3.")
@@ -498,6 +505,11 @@ class WordIndex:
             else:
                 deduped = [item for item in deduped if len(vowel_positions(item["word"])) <= 2]
 
+        if compound is True:
+            deduped = [item for item in deduped if item.get("compound")]
+        elif compound is False:
+            deduped = [item for item in deduped if not item.get("compound")]
+
         return deduped
 
     # ------------------------------------------------------------------ #
@@ -524,10 +536,14 @@ class WordIndex:
                 # Basic sanity checks ------------------------------------------------
                 if not subj_raw:
                     continue
-                if " " in subj_raw:  # ignore multi-word for now (keeps length logic)
+                # Accept letters, spaces and hyphens
+                if not re.fullmatch(r"[a-z\- ]+", subj_raw):
                     continue
-                if not re.fullmatch(r"[a-z]+", subj_raw):
-                    continue
+
+                # Cleaned version for length & vowel positions (ignore spaces & hyphens)
+                clean_word = re.sub(r"[ \-]", "", subj_raw)
+                # For display: keep original but strip hyphens (spaces indicate compound)
+                display_word = subj_raw.replace("-", "")
 
                 # Count occurrences (frequency in dataset)
                 subject_counts[subj_raw] = subject_counts.get(subj_raw, 0) + 1
@@ -542,7 +558,8 @@ class WordIndex:
         all_subjects = keyword_subjects.union(subject_counts.keys())
         for subj_raw in all_subjects:
             count = subject_counts.get(subj_raw, 1)  # keyword entries get count=1 if not in training data
-            vpos = vowel_positions(subj_raw)
+            clean_word = re.sub(r"[ \-]", "", subj_raw)
+            vpos = vowel_positions(clean_word)
             if not vpos:
                 continue  # must contain at least one vowel
 
@@ -556,14 +573,20 @@ class WordIndex:
             # Simple frequency-based common classification: frequency > 1 = common
             is_common = count > 1
 
-            key = (len(subj_raw), subj_raw[0], first_v, second_v)
+            # For display: keep original but strip hyphens (spaces indicate compound)
+            display_word = subj_raw.replace("-", "")
+            
+            key = (len(clean_word), display_word[0], first_v, second_v)
+            is_compound_flag = (" " in subj_raw) or ("-" in subj_raw)
+
             self.index.setdefault(key, []).append({
-                "word": subj_raw,
-                "holdable": subj_raw in HOLDABLE_SET,
+                "word": display_word,
+                "holdable": display_word in HOLDABLE_SET,
                 "cat": bucket,
                 "manmade": man_flag,
                 "common": is_common,
                 "freq_count": count,
+                "compound": is_compound_flag,
             })
 
         # Deduplicate while preserving order (probably unnecessary but safe)
@@ -575,6 +598,9 @@ class WordIndex:
                     deduped.append(item)
                     seen_words.add(item["word"])
             self.index[k] = deduped
+
+        # Add compound/simple flag before attaching other labels
+        self._add_compound_flags()
 
         # Attach Gemini flash labels
         self._apply_gemini_labels()
@@ -637,6 +663,43 @@ class WordIndex:
                 self.index[key] = filtered_lst
             else:
                 del self.index[key]
+
+    # ------------------------------------------------------------------ #
+    def _add_compound_flags(self) -> None:
+        """Add boolean `compound` flag to every word entry.
+
+        Rules:
+        1. If the word contains a space or hyphen → compound.
+        2. Otherwise we do a lightweight glued-compound heuristic:
+           the word can be split into two valid nouns that are themselves
+           present in our index (length ≥3 each).  That flags things like
+           "toothbrush" or "snowball" without heavy NLP libs.
+        """
+
+        # Build a fast lookup set of all nouns (already lower-case)
+        noun_set: set[str] = {item["word"] for lst in self.index.values() for item in lst}
+
+        for lst in self.index.values():
+            for item in lst:
+                # If compound already set (from JSONL preprocessing) keep it
+                if 'compound' in item:
+                    continue
+
+                w = item["word"]
+
+                # Explicit separators: space or hyphen (should not occur after canonicalization)
+                if " " in w or "-" in w:
+                    item["compound"] = True
+                    continue
+
+                # Glued compound heuristic
+                is_compound = False
+                for i in range(3, len(w) - 2):  # avoid 1-2 letter splits
+                    left, right = w[:i], w[i:]
+                    if left in noun_set and right in noun_set:
+                        is_compound = True
+                        break
+                item["compound"] = is_compound
 
 
 # -------------------------------------------------------------------------- #

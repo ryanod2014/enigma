@@ -8,6 +8,7 @@ interface Result {
   lex: string | null;
   manmade: boolean;
   region?: string | null;
+  compound?: boolean;
 }
 
 const categories = [
@@ -36,6 +37,7 @@ export default function App() {
   const [nicknameFilter, setNicknameFilter] = useState<'all'|'nickname'|'multiple'|'none'|'is_nick'>('all');
   const [msFilter, setMsFilter] = useState<'all'|'yes'|'no'>('all');
   const [sizeFilter, setSizeFilter] = useState<'all' | 'small' | 'big'>('all');
+  const [compoundFilter, setCompoundFilter] = useState<'all' | 'simple' | 'compound'>('all');
   const [letterEfficiency, setLetterEfficiency] = useState<number[]>([]);
   const [positionFilters, setPositionFilters] = useState<Record<number, string>>({});
 
@@ -106,6 +108,8 @@ export default function App() {
           if (msFilter === 'yes') body.ms = true;
           if (msFilter === 'no') body.ms = false;
           if (sizeFilter === 'small') body.holdable = true;
+          if (compoundFilter === 'compound') body.compound = true;
+          if (compoundFilter === 'simple') body.compound = false;
           
           return fetch(endpoint, {
             method: 'POST',
@@ -152,6 +156,8 @@ export default function App() {
         if (msFilter === 'yes') body.ms = true;
         if (msFilter === 'no') body.ms = false;
         if (sizeFilter === 'small') body.holdable = true;
+        if (compoundFilter === 'compound') body.compound = true;
+        if (compoundFilter === 'simple') body.compound = false;
 
         console.log('Request body:', body);
         const res = await fetch(endpoint, {
@@ -215,6 +221,10 @@ export default function App() {
     // Size filter (client-side)
     if (sizeFilter === 'small') ok = ok && ((r as any).holdable !== false);
     if (sizeFilter === 'big') ok = ok && ((r as any).holdable !== true);
+
+    // Compound filter is server-side but apply client-side too for counts accuracy
+    if (compoundFilter === 'compound') ok = ok && ((r as any).compound === true);
+    if (compoundFilter === 'simple') ok = ok && ((r as any).compound !== true);
 
     return ok;
   });
@@ -450,6 +460,17 @@ export default function App() {
     
     return [...activePositions, ...topEfficient];
   }, [filteredByPosition, filteredByMacro, results, positionFilters]);
+
+  // Compound counts (words mode only) before compound filter applied
+  const compoundCounts = (() => {
+    if (mode !== 'words') return { simple: 0, compound: 0 };
+    const base = positionFiltered.filter(() => true); // after top position filters
+    let simple = 0, compound = 0;
+    for (const r of base) {
+      if ((r as any).compound) compound++; else simple++;
+    }
+    return { simple, compound };
+  })();
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -793,6 +814,34 @@ export default function App() {
                     onClick={() => handleSizeFilter('big')}
                   >
                     Big ({sizeCounts.big})
+                  </Button>
+                </div>
+
+                {/* Compound Filter Row */}
+                <div className="flex gap-2 mt-2 justify-end">
+                  <Button
+                    variant={compoundFilter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    className={`h-11 ${compoundFilter === 'all' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                    onClick={() => setCompoundFilter('all')}
+                  >
+                    All ({filteredByRegion.length})
+                  </Button>
+                  <Button
+                    variant={compoundFilter === 'simple' ? 'default' : 'outline'}
+                    size="sm"
+                    className={`h-11 ${compoundFilter === 'simple' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                    onClick={() => setCompoundFilter('simple')}
+                  >
+                    Simple ({compoundCounts.simple})
+                  </Button>
+                  <Button
+                    variant={compoundFilter === 'compound' ? 'default' : 'outline'}
+                    size="sm"
+                    className={`h-11 ${compoundFilter === 'compound' ? 'bg-gray-600' : 'bg-transparent border-gray-600'}`}
+                    onClick={() => setCompoundFilter('compound')}
+                  >
+                    Compound ({compoundCounts.compound})
                   </Button>
                 </div>
               </>

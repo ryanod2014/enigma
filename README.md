@@ -116,6 +116,8 @@ A sophisticated word search tool designed for the 20 Questions game, built with 
   - First digit = 1st vowel position
   - Second digit = 2nd vowel position  
   - Letters = additional required letters
+- **Compound Toggle**: Choose *All*, *Simple*, or *Compound* words.  
+  *Compound* includes spaced ("fire truck"), hyphenated ("rain-coat"), or glued compounds ("toothbrush").
 - **Other**: Letters that must appear somewhere in the word
 - **2+ Button**: Words with more than 2 vowels
 
@@ -140,7 +142,8 @@ Search for words matching criteria.
   "random": "3S",
   "more_vowels": true,
   "last_category": 2,
-  "must_letters": "LR"
+  "must_letters": "LR",
+  "compound": true
 }
 ```
 

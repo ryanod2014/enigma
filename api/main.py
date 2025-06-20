@@ -90,7 +90,7 @@ if RHYME_FILE.is_file():
 
 # Helper to get char at 1-based position ignoring spaces
 def _char_at(word: str, pos: int) -> str:
-    clean = word.replace(" ", "")
+    clean = word.replace(" ", "").replace("-", "")
     return clean[pos - 1].upper() if 1 <= pos <= len(clean) else ""
 
 
@@ -109,6 +109,7 @@ class QueryIn(BaseModel):
     rhyme: Optional[bool] = None
     ms: Optional[bool] = None  # restrict to first letter M/T/S/F
     holdable: Optional[bool] = None
+    compound: Optional[bool] = None  # True = compound only, False = simple only
 
 
 class WordOut(BaseModel):
@@ -118,6 +119,7 @@ class WordOut(BaseModel):
     manmade: bool = False
     common: bool = True  # not used but front-end expects
     holdable: Optional[bool] = None
+    compound: Optional[bool] = None
     origin: Optional[str] = None
     size: Optional[str] = None
     label: Optional[str] = None
@@ -219,6 +221,7 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
         random_constraint=q.random,
         more_vowels=q.more_vowels,
         holdable=q.holdable,
+        compound=q.compound,
     )
 
     # Start with the raw word list
@@ -283,6 +286,7 @@ def query(q: QueryIn):  # noqa: D401 – FastAPI creates docs automatically
                 manmade=item.get("manmade", False),
                 common=item.get("common", False),
                 holdable=item.get("holdable"),
+                compound=item.get("compound"),
                 origin=item.get("origin"),
                 size=item.get("size"),
                 label=item.get("label"),
