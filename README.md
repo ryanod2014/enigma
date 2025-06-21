@@ -287,6 +287,69 @@ Follow these one-time steps to deploy to Replit so the API starts once and stays
 
 After the first boot the container stays resident, so every subsequent API call responds instantly.
 
+## Datasets
+
+### Wiki Top Cities Dataset
+
+**`wiki_top_cities_final.csv`** - The definitive dataset of 140 most popular cities for 20 Questions, based on Wikipedia's international visitor arrivals data.
+
+**Columns:**
+- **city**: City name
+- **country**: Country name  
+- **region**: Geographic region (Asia, Europe, North America, etc.)
+- **clean_name**: Normalized city name
+- **length**: Character count (ignoring spaces/hyphens)
+- **category**: First letter category (1=vowels, 2=consonants, 3=special)
+- **first_letter**: First letter of city name
+- **v1**: First vowel position (1-based)
+- **v2**: Second vowel position (1-based, or 0 if only one vowel)
+- **vowel_count**: Total vowel count
+- **all_vowel_positions**: List of all vowel positions
+
+**Code Distribution:**
+- 140 cities compressed into 55 unique codes
+- **Average: 2.55 cities per code** (much better than population-based ranking)
+- 56.4% of codes are unique (1 city only)
+- Maximum collision: 15 cities sharing the same code
+
+**Region Distribution:**
+- Asia: 51 cities (36.4%)
+- Europe: 36 cities (25.7%)  
+- North America: 20 cities (14.3%)
+- Middle East: 13 cities (9.3%)
+- Africa: 8 cities (5.7%)
+- South America: 7 cities (5.0%)
+- Oceania: 3 cities (2.1%)
+- Other: 2 cities (1.4%)
+
+## Utilities
+
+### City Code Extractor
+
+The `extract_city_codes.py` script extracts encoding parameters for any CSV list of cities.
+
+**Usage:**
+```bash
+# Print results to console
+python extract_city_codes.py cities.csv
+
+# Save results to CSV file  
+python extract_city_codes.py cities.csv output_codes.csv
+```
+
+**Input:** CSV with city names (auto-detects column)  
+**Output:** All encoding parameters plus preserved columns (country, region, etc.)
+
+**Example output:**
+```
+City                 Length Cat FL V1 V2 Vowels  Positions 
+----------------------------------------------------------------------
+Paris                5      2   P  2  4  2       [2, 4]    
+London               6      2   L  2  5  2       [2, 5]    
+Tokyo                5      2   T  2  4  3       [2, 4, 5] 
+Berlin               6      2   B  2  5  2       [2, 5]    
+```
+
 ## Contributing
 
 1. Fork the repository
@@ -298,6 +361,32 @@ After the first boot the container stays resident, so every subsequent API call 
 ## License
 
 This project is open source and available under the [MIT License](LICENSE).
+
+## Key Combination Analysis Results
+
+### Cities Dataset (140 cities)
+- **Current system** (Length + F1 + V1 + V2): **2.55 avg** cities per code, 15 max collision
+- **Best system** (Length + V1 + V2 + LL): **2.03 avg** cities per code, 13 max collision (20% improvement)
+- 56.4% of codes are unique (single city only)
+- Maximum collision: 15 cities sharing same code
+
+### Names Dataset Analysis (CORRECTED)
+
+#### Actual Names Used in Production (200 names)
+After simulating the **exact filtering pipeline** used in main.py:
+- 104,819 total names → 75,401 (top 200 US/world rank filter) → **200 final names** (freq >= 0.4 filter)
+- **Current system**: **2.41 avg** names per code (0.9x cities - actually BETTER!)
+- **Best system**: **1.89 avg** names per code (Length + F1 + V1 + V2 + LL)
+- 44.8% of codes are unique (single name only)
+- Maximum collision: 9 names sharing same code
+
+#### Specific Combinations for Production Names:
+- **Length + F1 + V1**: 4.88 avg, 18 max collision
+- **F1 + V1 + V2**: 6.67 avg, 26 max collision  
+- **F1 + V1 + V2 + LL**: 3.85 avg, 24 max collision
+- **Length + F1 + V1 + LL**: 3.17 avg, 16 max collision
+
+**Key Finding**: The aggressive filtering in main.py (freq >= 0.4) reduces names to just 200 high-quality entries, making the encoding system **more efficient than cities**! Previous analysis based on full datasets was misleading.
 
 ## Acknowledgments
 

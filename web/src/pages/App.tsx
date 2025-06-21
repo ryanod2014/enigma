@@ -22,6 +22,7 @@ type CommonFilter = 'all' | 'common' | 'uncommon';
 export default function App() {
   const [length, setLength] = useState<number>(4);
   const [category, setCategory] = useState<number | null>(null);
+  const [lastCategory, setLastCategory] = useState<number | null>(null);
   const [selectedVowels, setSelectedVowels] = useState<number[]>([1]);
   const [mustLetters, setMustLetters] = useState<string>('');
   const [moreVowels, setMoreVowels] = useState<boolean | undefined>();
@@ -104,6 +105,7 @@ export default function App() {
           const body: any = { length, category: cat, v1, v2 };
           if (moreVowels !== undefined) body.more_vowels = moreVowels;
           if (mustLetters) body.must_letters = mustLetters;
+          if (lastCategory !== null) body.last_category = lastCategory;
           if (mode === 'names' && nicknameFilter !== 'all') body.nickname = nicknameFilter;
           if (msFilter === 'yes') body.ms = true;
           if (msFilter === 'no') body.ms = false;
@@ -152,6 +154,7 @@ export default function App() {
         const body: any = { length, category, v1, v2 };
         if (moreVowels !== undefined) body.more_vowels = moreVowels;
         if (mustLetters) body.must_letters = mustLetters;
+        if (lastCategory !== null) body.last_category = lastCategory;
         if (mode === 'names' && nicknameFilter !== 'all') body.nickname = nicknameFilter;
         if (msFilter === 'yes') body.ms = true;
         if (msFilter === 'no') body.ms = false;
@@ -558,6 +561,31 @@ export default function App() {
                       : 'bg-transparent text-white border-gray-600'
                   }`}
                   onClick={() => setCategory(category === cat.id ? null : cat.id)}
+                >
+                  <IconComponent className="w-5 h-5" />
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Last Letter Selection */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-300 text-right">LL</label>
+          <div className="flex gap-2 justify-end">
+            {categories.map((cat) => {
+              const IconComponent = cat.icon;
+              return (
+                <Button
+                  key={`last-${cat.id}`}
+                  variant={lastCategory === cat.id ? "default" : "outline"}
+                  size="sm"
+                  className={`h-16 w-16 ${
+                    lastCategory === cat.id 
+                      ? 'bg-gray-600 text-white border-gray-600' 
+                      : 'bg-transparent text-white border-gray-600'
+                  }`}
+                  onClick={() => setLastCategory(lastCategory === cat.id ? null : cat.id)}
                 >
                   <IconComponent className="w-5 h-5" />
                 </Button>

@@ -1,0 +1,101 @@
+code,city,country,region
+(6,1,2,1),London,United Kingdom,Europe
+(6,1,2,1),Mumbai,India,Asia
+(6,1,2,1),Taipei,Taiwan,Asia
+(6,1,2,1),Medina,Saudi Arabia,Middle East
+(6,1,2,1),Vienna,Austria,Europe
+(6,1,2,1),Moscow,Russia,Other
+(6,1,2,1),Venice,Italy,Europe
+(6,1,2,1),Munich,Germany,Europe
+(6,1,2,1),Lisbon,Portugal,Europe
+(6,1,2,1),Warsaw,Poland,Europe
+(5,1,2,1),Mecca,Saudi Arabia,Middle East
+(5,1,2,1),Miami,United States,North America
+(5,1,2,1),Milan,Italy,Europe
+(5,1,2,1),Hanoi,Vietnam,Asia
+(5,1,2,1),Muğla,Turkey,Middle East
+(5,1,2,2),Macau,Macau,Asia
+(5,1,2,2),Tokyo,Japan,Asia
+(5,1,2,2),Kyoto,Japan,Asia
+(6,3,2,1),Berlin,Germany,Europe
+(6,3,2,1),Riyadh,Saudi Arabia,Middle East
+(6,3,2,1),Dublin,Ireland,Europe
+(6,3,2,1),Dammam,Saudi Arabia,Middle East
+(5,3,2,1),Dubai,United Arab Emirates,Middle East
+(5,3,2,1),Delhi,India,Asia
+(5,3,2,1),Batam,Indonesia,Asia
+(8,1,2,2),Hong Kong,Hong Kong,Asia
+(8,1,2,2),Las Vegas,United States,North America
+(8,1,2,2),Honolulu,United States,North America
+(7,3,2,1),Bangkok,Thailand,Asia
+(7,3,2,1),Pattaya,Thailand,Asia
+(6,3,3,1),Phuket,Thailand,Asia
+(6,3,3,1),Prague,Czech Republic,Europe
+(8,2,3,1),Shenzhen,China,Asia
+(8,2,3,1),Shanghai,China,Asia
+(9,2,2,1),Singapore,Singapore,Asia
+(9,2,2,1),Jerusalem,Israel,Middle East
+(6,2,2,1),Cancún,Mexico,North America
+(6,2,2,1),Sydney,Australia,Oceania
+(6,2,2,1),Guilin,China,Asia
+(5,3,2,2),Paris,France,Europe
+(5,3,2,2),Porto,Portugal,Europe
+(8,1,1,1),Istanbul,Turkey,Middle East
+(8,1,1,1),Abu Dhabi,United Arab Emirates,Middle East
+(11,1,2,1),New York City,United States,North America
+(11,1,2,3),Kuala Lumpur,Malaysia,Asia
+(6,1,2,2),Ha Long,Vietnam,Asia
+(6,1,2,2),Naples,Italy,Europe
+(7,1,1,1),Antalya,Turkey,Middle East
+(15,3,2,1),Palma de Mallorca,Spain,Europe
+(9,1,2,1),Heraklion,Greece,Europe
+(9,1,2,1),Melbourne,Australia,Oceania
+(9,1,2,1),Marrakesh,Morocco,Africa
+(4,3,2,1),Rome,Italy,Europe
+(9,2,2,2),Guangzhou,China,Asia
+(5,2,2,1),Seoul,South Korea,Asia
+(9,1,1,1),Amsterdam,Netherlands,Europe
+(12,2,2,2),Johannesburg,South Africa,Africa
+(12,2,2,2),San Francisco,United States,North America
+(4,1,1,1),Agra,India,Asia
+(5,2,1,1),Osaka,Japan,Asia
+(13,1,2,1),Ho Chi Minh City,Vietnam,Asia
+(8,3,2,3),Denpasar,Indonesia,Asia
+(9,3,2,1),Barcelona,Spain,Europe
+(10,1,2,2),Los Angeles,United States,North America
+(7,2,3,1),Chennai,India,Asia
+(10,2,2,2),Johor Bahru,Malaysia,Asia
+(6,2,2,3),Jaipur,India,Asia
+(6,1,1,2),Athens,Greece,Europe
+(7,2,1,2),Orlando,United States,North America
+(6,1,2,3),Madrid,Spain,Europe
+(7,1,2,1),Kolkata,India,Asia
+(7,1,2,1),Tel Aviv,Israel,Middle East
+(7,1,2,1),Fukuoka,Japan,Asia
+(8,1,3,1),Florence,Italy,Europe
+(6,1,3,1),Zhuhai,China,Asia
+(6,1,3,1),Kraków,Poland,Europe
+(7,1,2,2),Toronto,Canada,North America
+(7,2,2,1),Jakarta,Indonesia,Asia
+(7,3,2,2),Beijing,China,Asia
+(9,2,3,1),Chiang Mai,Thailand,Asia
+(9,2,3,1),Stockholm,Sweden,Europe
+(15,2,2,2),Saint Petersburg,Russia,Other
+(8,3,3,2),Brussels,Belgium,Europe
+(8,3,2,1),Budapest,Hungary,Europe
+(12,3,2,3),Penang Island,Malaysia,Asia
+(9,1,2,3),Vancouver,Canada,North America
+(10,2,2,1),Copenhagen,Denmark,Europe
+(8,2,2,1),Cebu City,Philippines,Asia
+(8,1,1,3),Auckland,New Zealand,Oceania
+(4,1,2,1),Lima,Peru,South America
+(4,1,2,1),Nice,France,Europe
+(8,1,2,1),Hurghada,Egypt,Africa
+(11,3,2,2),Buenos Aires,Argentina,South America
+(5,2,3,1),Chiba,Japan,Asia
+(15,1,3,1),Frankfurt am Main,Germany,Europe
+(6,3,2,2),Da Nang,Vietnam,Asia
+(4,2,2,2),Jeju,South Korea,Asia
+(6,3,3,2),Rhodes,Greece,Europe
+(12,3,2,2),Rio de Janeiro,Brazil,South America
+(5,1,3,1),Krabi,Thailand,Asia

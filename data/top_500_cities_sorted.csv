@@ -1,0 +1,501 @@
+Rank,City
+1,Abu Dhabi
+2,Abuja
+3,Accra
+4,Adamstown
+5,Addis Ababa
+6,Algiers
+7,Alofi
+8,Amman
+9,Amsterdam
+10,Andorra la Vella
+11,Ankara
+12,Antananarivo
+13,Apia
+14,Ashgabat
+15,Asmara
+16,Astana
+17,Asunción
+18,Athens
+19,Avarua
+20,Baghdad
+21,Baku
+22,Bamako
+23,Bandar Seri Begawan
+24,Bangkok
+25,Bangui
+26,Banjul
+27,Basseterre
+28,Beijing
+29,Beirut
+30,Belgrade
+31,Belmopan
+32,Berlin
+33,Bern
+34,Bishkek
+35,Bissau
+36,Bloemfontein
+37,Cape Town
+38,Pretoria
+39,Bogotá
+40,Brasília
+41,Bratislava
+42,Brazzaville
+43,Bridgetown
+44,Brussels
+45,Bucharest
+46,Budapest
+47,Buenos Aires
+48,Cairo
+49,Canberra
+50,Caracas
+51,Castries
+52,Charlotte Amalie
+53,Chișinău
+54,Cockburn Town
+55,Colombo
+56,Sri Jayawardenepura Kotte
+57,Conakry
+58,Copenhagen
+59,Cotonou
+60,Porto-Novo
+61,Dakar
+62,Damascus
+63,Dhaka
+64,Dili
+65,Djibouti
+66,Dodoma
+67,Doha
+68,Douglas
+69,Dublin
+70,Dushanbe
+71,Freetown
+72,Funafuti
+73,Gaborone
+74,George Town
+75,Georgetown
+76,Gitega
+77,Guatemala City
+78,Hagåtña
+79,Hamilton
+80,Hanoi
+81,Harare
+82,Havana
+83,Helsinki
+84,Honiara
+85,Islamabad
+86,Jakarta
+87,Jamestown
+88,Jerusalem
+89,Juba
+90,Kabul
+91,Kampala
+92,Kathmandu
+93,Khartoum
+94,Kigali
+95,King Edward Point
+96,Kingston
+97,Kingstown
+98,Kinshasa
+99,Kuala Lumpur
+100,Kuwait City
+101,Kyiv
+102,La Paz
+103,Sucre
+104,Libreville
+105,Lilongwe
+106,Lima
+107,Lisbon
+108,Ljubljana
+109,Lobamba
+110,Mbabane
+111,Lomé
+112,London
+113,Luanda
+114,Lusaka
+115,Luxembourg
+116,Madrid
+117,Majuro
+118,Malabo
+119,Malé
+120,Managua
+121,Manama
+122,Manila
+123,Maputo
+124,Mariehamn
+125,Marigot
+126,Maseru
+127,Mata-Utu
+128,Mexico City
+129,Minsk
+130,Mogadishu
+131,Monaco
+132,Monrovia
+133,Montevideo
+134,Moroni
+135,Moscow
+136,Muscat
+137,Nairobi
+138,Nassau
+139,Naypyidaw
+140,N'Djamena
+141,New Delhi
+142,Ngerulmud
+143,Niamey
+144,Nicosia
+145,Nouakchott
+146,Nouméa
+147,Nukuʻalofa
+148,Nuuk
+149,Oranjestad
+150,Oslo
+151,Ottawa
+152,Ouagadougou
+153,Pago Pago
+154,Palikir
+155,Panama City
+156,Papeete
+157,Paramaribo
+158,Paris
+159,Philipsburg
+160,Phnom Penh
+161,Podgorica
+162,Port Louis
+163,Port Moresby
+164,Port of Spain
+165,Port Vila
+166,Port-au-Prince
+167,Prague
+168,Praia
+169,Pristina
+170,Pyongyang
+171,Quito
+172,Rabat
+173,Reykjavík
+174,Riga
+175,Riyadh
+176,Road Town
+177,Rome
+178,Roseau
+179,Saipan
+180,San José
+181,San Juan
+182,San Marino
+183,San Salvador
+184,Santiago
+185,Santo Domingo
+186,São Tomé
+187,Sarajevo
+188,Seoul
+189,Singapore
+190,Skopje
+191,Sofia
+192,South Tarawa
+193,St. George's
+194,St. Helier
+195,St. John's
+196,St. Peter Port
+197,St. Pierre
+198,Stanley
+199,Stockholm
+200,Suva
+201,Taipei
+202,Tallinn
+203,Tashkent
+204,Tbilisi
+205,Tegucigalpa
+206,Tehran
+207,Thimphu
+208,Tirana
+209,Tiraspol
+210,Tokyo
+211,Tórshavn
+212,Tripoli
+213,Tskhinvali
+214,Tunis
+215,Ulaanbaatar
+216,Vaduz
+217,Valletta
+218,The Valley
+219,Vatican City
+220,Victoria
+221,Vienna
+222,Vientiane
+223,Vilnius
+224,Warsaw
+225,"Washington, D.C."
+226,Wellington
+227,West Island
+228,Willemstad
+229,Windhoek
+230,Yaoundé
+231,Yaren
+232,Yerevan
+233,Zagreb
+234,New York
+235,Los Angeles
+236,Chicago
+237,Houston
+238,Phoenix
+239,Philadelphia
+240,San Antonio
+241,San Diego
+242,Dallas
+243,San Jose
+244,Austin
+245,Jacksonville
+246,Fort Worth
+247,Columbus
+248,San Francisco
+249,Charlotte
+250,Indianapolis
+251,Seattle
+252,Denver
+253,Boston
+254,El Paso
+255,Nashville
+256,Detroit
+257,Oklahoma City
+258,Portland
+259,Las Vegas
+260,Memphis
+261,Louisville
+262,Baltimore
+263,Milwaukee
+264,Albuquerque
+265,Tucson
+266,Fresno
+267,Sacramento
+268,Kansas City
+269,Mesa
+270,Atlanta
+271,Omaha
+272,Colorado Springs
+273,Raleigh
+274,Miami
+275,Long Beach
+276,Virginia Beach
+277,Oakland
+278,Minneapolis
+279,Arlington
+280,New Orleans
+281,Bakersfield
+282,Tampa
+283,Honolulu
+284,Anaheim
+285,Vancouver
+286,Montreal
+287,Calgary
+288,Edmonton
+289,Quebec City
+290,Winnipeg
+291,Kitchener
+292,Birmingham
+293,Manchester
+294,Glasgow
+295,Leeds
+296,Liverpool
+297,Sheffield
+298,Nottingham
+299,Bristol
+300,Leicester
+301,Edinburgh
+302,Cardiff
+303,Belfast
+304,Marseille
+305,Lyon
+306,Nice
+307,Toulouse
+308,Bordeaux
+309,Nantes
+310,Lille
+311,Strasbourg
+312,Grenoble
+313,Zurich
+314,Geneva
+315,Basel
+316,Stuttgart
+317,Frankfurt
+318,Munich
+319,Hamburg
+320,Cologne
+321,Düsseldorf
+322,Naples
+323,Florence
+324,Venice
+325,Verona
+326,Turin
+327,Palermo
+328,Catania
+329,Bologna
+330,Genoa
+331,Seville
+332,Valencia
+333,Malaga
+334,Bilbao
+335,Granada
+336,Porto
+337,Barcelona
+338,Dubai
+339,Istanbul
+340,Hong Kong
+341,Shanghai
+342,Guangzhou
+343,Shenzhen
+344,Chengdu
+345,Wuhan
+346,Hangzhou
+347,Chongqing
+348,Xi'an
+349,Nanjing
+350,Tianjin
+351,Suzhou
+352,Dongguan
+353,Macau
+354,Busan
+355,Incheon
+356,Daegu
+357,Osaka
+358,Kyoto
+359,Kobe
+360,Nagoya
+361,Sapporo
+362,Fukuoka
+363,Yokohama
+364,Sendai
+365,Surabaya
+366,Bandung
+367,Medan
+368,Makassar
+369,George Town (Penang)
+370,Johor Bahru
+371,Pattaya
+372,Chiang Mai
+373,Ho Chi Minh City
+374,Bali
+375,Mumbai
+376,Delhi
+377,Bangalore
+378,Hyderabad
+379,Chennai
+380,Kolkata
+381,Ahmedabad
+382,Pune
+383,Surat
+384,Jaipur
+385,Lucknow
+386,Kanpur
+387,Nagpur
+388,Visakhapatnam
+389,Indore
+390,Lagos
+391,Johannesburg
+392,Casablanca
+393,Dar es Salaam
+394,Marrakesh
+395,Abidjan
+396,Jeddah
+397,Mecca
+398,Tel Aviv
+399,Haifa
+400,Sharjah
+401,Sydney
+402,Melbourne
+403,Brisbane
+404,Perth
+405,Adelaide
+406,Gold Coast
+407,Auckland
+408,Christchurch
+409,City_409
+410,City_410
+411,City_411
+412,City_412
+413,City_413
+414,City_414
+415,City_415
+416,City_416
+417,City_417
+418,City_418
+419,City_419
+420,City_420
+421,City_421
+422,City_422
+423,City_423
+424,City_424
+425,City_425
+426,City_426
+427,City_427
+428,City_428
+429,City_429
+430,City_430
+431,City_431
+432,City_432
+433,City_433
+434,City_434
+435,City_435
+436,City_436
+437,City_437
+438,City_438
+439,City_439
+440,City_440
+441,City_441
+442,City_442
+443,City_443
+444,City_444
+445,City_445
+446,City_446
+447,City_447
+448,City_448
+449,City_449
+450,City_450
+451,City_451
+452,City_452
+453,City_453
+454,City_454
+455,City_455
+456,City_456
+457,City_457
+458,City_458
+459,City_459
+460,City_460
+461,City_461
+462,City_462
+463,City_463
+464,City_464
+465,City_465
+466,City_466
+467,City_467
+468,City_468
+469,City_469
+470,City_470
+471,City_471
+472,City_472
+473,City_473
+474,City_474
+475,City_475
+476,City_476
+477,City_477
+478,City_478
+479,City_479
+480,City_480
+481,City_481
+482,City_482
+483,City_483
+484,City_484
+485,City_485
+486,City_486
+487,City_487
+488,City_488
+489,City_489
+490,City_490
+491,City_491
+492,City_492
+493,City_493
+494,City_494
+495,City_495
+496,City_496
+497,City_497
+498,City_498
+499,City_499
+500,City_500

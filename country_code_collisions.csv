@@ -1,0 +1,75 @@
+code,country,region
+(1, 2, 1),Turkey,Europe
+(1, 2, 1),Vietnam,Asia
+(1, 2, 1),Malaysia,Asia
+(1, 2, 1),Norway,Europe
+(1, 2, 1),Hungary,Europe
+(1, 2, 1),Kenya,Africa
+(1, 2, 1),Tanzania,Africa
+(1, 2, 1),Fiji,Oceania
+(1, 2, 1),Nicaragua,North America
+(1, 2, 1),Lebanon,Middle East
+(1, 2, 1),Kazakhstan,Asia
+(1, 2, 1),Mongolia,Asia
+(1, 2, 1),Nepal,Asia
+(1, 2, 1),Taiwan,Asia
+(1, 2, 1),Malta,Europe
+(1, 2, 1),North Macedonia,Europe
+(1, 2, 1),Lithuania,Europe
+(1, 2, 1),Latvia,Europe
+(2, 2, 1),Germany,Europe
+(2, 2, 1),Japan,Asia
+(2, 2, 1),Canada,North America
+(2, 2, 1),South Korea,Asia
+(2, 2, 1),South Africa,Africa
+(2, 2, 1),Singapore,Asia
+(2, 2, 1),Colombia,South America
+(2, 2, 1),Costa Rica,North America
+(2, 2, 1),Cuba,North America
+(2, 2, 1),Guatemala,North America
+(2, 2, 1),Jordan,Middle East
+(2, 2, 1),Saudi Arabia,Middle East
+(2, 2, 1),Georgia,Europe
+(2, 2, 1),Cambodia,Asia
+(2, 2, 1),Serbia,Europe
+(1, 1, 1),Italy,Europe
+(1, 1, 1),Austria,Europe
+(1, 1, 1),Australia,Unknown
+(1, 1, 1),India,Asia
+(1, 1, 1),Indonesia,Asia
+(1, 1, 1),Argentina,South America
+(1, 1, 1),Egypt,Africa
+(1, 1, 1),Israel,Middle East
+(1, 1, 1),Armenia,Asia
+(1, 1, 1),Azerbaijan,Asia
+(1, 1, 1),Albania,Europe
+(1, 1, 1),Estonia,Europe
+(3, 2, 1),Portugal,Europe
+(3, 2, 1),Denmark,Europe
+(3, 2, 1),Belgium,Europe
+(3, 2, 1),Bolivia,South America
+(3, 2, 1),Panama,North America
+(3, 2, 1),Belize,North America
+(3, 2, 1),Paraguay,South America
+(3, 2, 1),Bahrain,Middle East
+(3, 2, 1),Romania,Europe
+(3, 2, 1),Bulgaria,Europe
+(3, 2, 1),Bosnia and Herzegovina,Europe
+(1, 2, 2),Mexico,North America
+(1, 2, 2),Netherlands,Europe
+(1, 2, 2),Morocco,Africa
+(1, 2, 2),Maldives,Asia
+(1, 2, 2),Mauritius,Africa
+(1, 2, 2),Honduras,North America
+(1, 2, 2),Laos,Asia
+(1, 2, 2),Montenegro,Unknown
+(1, 2, 2),Luxembourg,Europe
+(2, 3, 1),Spain,Europe
+(2, 3, 1),China,Asia
+(2, 3, 1),Greece,Europe
+(2, 3, 1),Croatia,Europe
+(2, 3, 1),Sweden,Europe
+(2, 3, 1),Chile,South America
+(2, 3, 1),Sri Lanka,Asia
+(2, 3, 1),Slovenia,Europe
+(2, 3, 1),Slovakia,Europe

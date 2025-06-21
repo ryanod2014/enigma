@@ -1,0 +1,10 @@
+city,clean_name,length,category,first_letter,v1,v2,vowel_count,all_vowel_positions,row_number
+Paris,paris,5,3,P,2,4,2,"[2, 4]",2
+London,london,6,1,L,2,5,2,"[2, 5]",3
+Tokyo,tokyo,5,1,T,2,4,3,"[2, 4, 5]",4
+Berlin,berlin,6,3,B,2,5,2,"[2, 5]",5
+Moscow,moscow,6,1,M,2,5,2,"[2, 5]",6
+Rome,rome,4,3,R,2,4,2,"[2, 4]",7
+Madrid,madrid,6,1,M,2,5,2,"[2, 5]",8
+Athens,athens,6,1,A,1,4,2,"[1, 4]",9
+Vienna,vienna,6,1,V,2,3,3,"[2, 3, 6]",10
